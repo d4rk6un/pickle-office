@@ -46,6 +46,7 @@
     tab: "map",
     modalSubmit: null,
     setupOpen: false,
+    pendingProfile: null,
     chatDirty: true
   };
 
@@ -127,22 +128,6 @@
 
   function values(obj) { return Object.keys(obj || {}).map((k) => Object.assign({ id: k }, obj[k] || {})); }
 
-  /* 서버에 이미 내 프로필이 있는지 첫 스냅샷을 잠깐 기다립니다 */
-  function waitForAgents(timeoutMs) {
-    if (Store.has && Store.has("agents")) return Promise.resolve();
-    return new Promise((resolve) => {
-      let settled = false;
-      const done = () => {
-        if (settled) return;
-        settled = true;
-        try { off(); } catch (e) { /* ignore */ }
-        resolve();
-      };
-      const off = Store.on("agents", () => { if (!settled) setTimeout(done, 80); });
-      setTimeout(done, timeoutMs || 4000);
-    });
-  }
-
   /* ---------------- 내 정체성 : 인증 계정(uid) = 내 피클 ---------------- */
 
   const CLIENT = (function () {
@@ -190,11 +175,8 @@
   async function ensureProfile(user) {
     if (!user || !user.uid) return;
     if (state.agents[user.uid]) { await touchPresence(); return; }
-    // 첫 스냅샷 전에 쓰면 기존 프로필을 덮어쓸 수 있으므로 기다립니다
-    if (!(Store.has && Store.has("agents"))) {
-      toast("오피스 데이터를 아직 불러오지 못했어요. 연결을 확인해 주세요");
-      return;
-    }
+    // 첫 스냅샷 전에 쓰면 기존 프로필을 덮어쓸 수 있으므로 스냅샷이 온 뒤에만 진행합니다
+    if (!(Store.has && Store.has("agents"))) return;
     const preset = presetFor(user.email);
     if (!preset) { openSetupModal(user); return; }
     const name = preset.name || (user.email || "").split("@")[0] || "피클";
@@ -970,6 +952,14 @@
         renderMap();
         renderMeeting();
         renderWorkspace();
+        if (state.pendingProfile && Store.has && Store.has("agents")) {
+          const uid = state.pendingProfile;
+          state.pendingProfile = null;
+          const user = currentUser();
+          if (user && user.uid === uid) {
+            ensureProfile(user).catch((err) => console.error("[profile]", err));
+          }
+        }
       } else if (path === "chat") {
         renderMeeting();
       } else if (path === "tasks") {
@@ -1103,10 +1093,7 @@
 
   /* ---------------- 시작 ---------------- */
 
-  let authFlowToken = 0;
-
   async function onAuthChanged(user) {
-    const token = ++authFlowToken;
     state.authUser = user || null;
     state.me = user && user.uid ? { id: user.uid } : null;
 
@@ -1119,6 +1106,7 @@
       state.agents = {}; state.chat = {}; state.tasks = {};
       state.notes = {}; state.agenda = {}; state.decisions = {};
       state.setupOpen = false;
+      state.pendingProfile = null;
       if (dialog.open) { try { dialog.close(); } catch (e) { /* ignore */ } }
       renderAll();
       showGate();
@@ -1127,13 +1115,18 @@
 
     showApp();
     renderAll();
-    await waitForAgents(8000);
-    if (token !== authFlowToken) return;
-    try {
-      await ensureProfile(user);
-    } catch (err) {
-      console.error("[profile] 내 피클을 준비하지 못했어요", err);
-      toast("내 피클을 불러오지 못했어요 (권한 또는 네트워크 확인)");
+
+    // 첫 스냅샷이 이미 있으면 바로, 아니면 agents 구독 콜백에서 이어서 처리합니다
+    if (Store.has && Store.has("agents")) {
+      state.pendingProfile = null;
+      try {
+        await ensureProfile(user);
+      } catch (err) {
+        console.error("[profile] 내 피클을 준비하지 못했어요", err);
+        toast("내 피클을 불러오지 못했어요 (권한 또는 네트워크 확인)");
+      }
+    } else {
+      state.pendingProfile = user.uid;
     }
   }
 
