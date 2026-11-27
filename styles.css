@@ -721,9 +721,10 @@ button { cursor: pointer; }
   position: absolute;
   top: 76px;
   right: 14px;
-  bottom: 100px;
   width: 388px;
   max-width: calc(100% - 28px);
+  height: auto;
+  max-height: calc(100vh - 180px);
   display: flex;
   flex-direction: column;
   background: linear-gradient(180deg, rgba(32, 24, 54, 0.97), rgba(20, 14, 34, 0.98));
@@ -1395,6 +1396,7 @@ dialog.modal::backdrop {
     top: auto;
     bottom: 8px;
     width: auto;
+    height: auto;
     max-height: 64vh;
   }
   .panel-head h2 { font-size: 13px; }

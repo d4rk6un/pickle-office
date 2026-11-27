@@ -599,45 +599,55 @@
   }
 
   function drawCounter(g) {
-    const x = 60, y = 416, w = 330, h = 56;
-    px(g, x + 3, y + h - 2, w, 8, "rgba(30,20,40,0.2)");
-    px(g, x, y, w, h, "#8a5a38");
-    px(g, x, y, w, 6, "#c08a58");
-    px(g, x, y + h - 10, w, 10, "#6f4529");
+    const x = 60, y = 416, w = 330, h = 58;
+    px(g, x + 3, y + h - 2, w, 8, "rgba(30,20,40,0.22)");
+    px(g, x, y, w, h, "#7b4f31");
+    px(g, x, y, w, 6, "#a06d44");
+    px(g, x, y + h - 8, w, 8, "#5d3c24");
+
     // 상판
-    px(g, x - 4, y - 6, w + 8, 10, "#e0c39a");
-    px(g, x - 4, y - 6, w + 8, 2, "#f6e6c8");
+    px(g, x + 4, y + 6, w - 8, h - 16, "#e0c39a");
+    px(g, x + 4, y + 6, w - 8, 3, "#f6e6c8");
+    px(g, x + 4, y + h - 12, w - 8, 3, "#c2a173");
 
     // 에스프레소 머신
-    px(g, x + 26, y - 30, 54, 26, "#2f3350");
-    px(g, x + 30, y - 26, 46, 8, "#454b73");
-    px(g, x + 34, y - 14, 8, 8, "#ffd166");
-    px(g, x + 46, y - 14, 8, 8, "#ff87bd");
-    px(g, x + 60, y - 16, 14, 6, "#9aa3c0");
-    // 컵들
-    for (let i = 0; i < 3; i++) {
-      px(g, x + 104 + i * 12, y - 20, 9, 9, "#ffffff");
-      px(g, x + 104 + i * 12, y - 21, 9, 2, "#c9d4ea");
-    }
-    // 유리 진열장
-    px(g, x + 160, y - 34, 70, 30, "rgba(170,210,235,0.55)");
-    g.strokeStyle = "#5d6b8c"; g.lineWidth = 2;
-    g.strokeRect(x + 160, y - 34, 70, 30);
-    px(g, x + 172, y - 26, 14, 10, "#e6b77a");
-    px(g, x + 192, y - 26, 16, 10, "#f0d3a8");
+    px(g, x + 22, y + 12, 58, 26, "#2f3350");
+    px(g, x + 26, y + 16, 50, 8, "#454b73");
+    px(g, x + 30, y + 26, 8, 7, "#ffd166");
+    px(g, x + 42, y + 26, 8, 7, "#ff87bd");
+    px(g, x + 58, y + 24, 16, 6, "#9aa3c0");
+    px(g, x + 58, y + 30, 16, 3, "#6f7896");
 
-    // 칠판 사인
-    px(g, x + 246, y - 44, 72, 38, "#3a2f2a");
-    g.strokeStyle = "#8a5a38"; g.lineWidth = 2;
-    g.strokeRect(x + 246, y - 44, 72, 38);
+    // 컵들과 유리잔
+    for (let i = 0; i < 3; i++) {
+      px(g, x + 96 + i * 13, y + 16, 9, 9, "#ffffff");
+      px(g, x + 96 + i * 13, y + 16, 9, 2, "#dbe4f5");
+    }
+    px(g, x + 96, y + 30, 30, 3, "#c2a173");
+
+    // 유리 진열장
+    px(g, x + 148, y + 10, 68, 32, "rgba(170,210,235,0.5)");
+    g.strokeStyle = "#5d6b8c";
+    g.lineWidth = 2;
+    g.strokeRect(x + 148, y + 10, 68, 32);
+    px(g, x + 158, y + 18, 14, 10, "#e6b77a");
+    px(g, x + 178, y + 18, 16, 10, "#f0d3a8");
+    px(g, x + 158, y + 32, 36, 2, "#9aa8c4");
+
+    // 칠판 사인 (카운터 위)
+    px(g, x + 230, y + 10, 74, 34, "#3a2f2a");
+    g.strokeStyle = "#c08a58";
+    g.lineWidth = 2;
+    g.strokeRect(x + 230, y + 10, 74, 34);
     g.fillStyle = "#ffe9b0";
     g.font = "bold 9px 'Galmuri11','Malgun Gothic',sans-serif";
-    g.fillText("COFFEE", x + 256, y - 30);
-    g.fillText("2,500", x + 260, y - 18);
+    g.fillText("COFFEE", x + 244, y + 25);
+    g.fillText("2,500", x + 249, y + 37);
 
     // 원두 자루
-    px(g, x + 4, y + 10, 16, 22, "#6b4a2f");
-    px(g, x + 6, y + 14, 12, 4, "#8a5a38");
+    px(g, x + 8, y + 14, 14, 24, "#6b4a2f");
+    px(g, x + 10, y + 18, 10, 4, "#8a5a38");
+    px(g, x + 8, y + 38, 14, 3, "#4f351f");
   }
 
   function drawSofa(g, x, y, w, h) {
@@ -884,13 +894,13 @@
     g.moveTo(518, 658); g.lineTo(550, 658); g.lineTo(544, 640); g.lineTo(524, 640);
     g.closePath(); g.fill();
 
-    // 창 커튼
-    g.fillStyle = "#b46a72";
-    g.beginPath();
-    g.moveTo(8, 456); g.lineTo(40, 456); g.lineTo(34, 600); g.lineTo(8, 600);
-    g.closePath(); g.fill();
-    g.fillStyle = "rgba(255,255,255,0.14)";
-    for (let i = 0; i < 4; i++) px(g, 12 + i * 6, 462, 2, 132, "rgba(255,255,255,0.14)");
+    // 창 커튼 (양옆으로 걷힌 천)
+    [[6, 9], [30, 9]].forEach(function (c) {
+      px(g, c[0], 458, c[1], 146, "#a85c66");
+      px(g, c[0], 458, c[1], 3, "#c97c86");
+      px(g, c[0] + 3, 464, 2, 134, "rgba(255,255,255,0.16)");
+    });
+    px(g, 4, 452, 42, 4, "#6b4a2f");
 
     // 러그 술
     g.save();
