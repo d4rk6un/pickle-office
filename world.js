@@ -36,7 +36,9 @@
   const keys = new Set();
   const bubbles = [];
   const motes = [];
+  const puffs = [];
   const seen = new Map();
+  let lastPuff = 0;
 
   let cbs = {};
   let raf = 0;
@@ -465,6 +467,16 @@
         me.walkT += dt;
         if (Math.abs(vx) > 0.2) me.facing = vx > 0 ? 1 : -1;
         stepSound();
+        const nowMs = performance.now();
+        if (nowMs - lastPuff > 240) {
+          lastPuff = nowMs;
+          puffs.push({
+            x: me.x + (Math.random() * 8 - 4),
+            y: me.y - 1,
+            born: nowMs
+          });
+          if (puffs.length > 24) puffs.shift();
+        }
       }
     } else {
       me.blocked = 0;
@@ -519,6 +531,7 @@
     me.target = pts[0];
     me.path = pts.slice(1);
     me.blocked = 0;
+    me.marker = { x: clamp(x, 40, W - 40), y: clamp(y, 40, H - 40), until: performance.now() + 900 };
   }
 
   function hold(dir, on) {
@@ -801,6 +814,34 @@
 
     // 말풍선
     const nowMs = performance.now();
+
+    // 클릭 지점 표시
+    if (me.marker && me.marker.until > nowMs) {
+      const k = 1 - (me.marker.until - nowMs) / 900;
+      const r = 4 + k * 10;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 0.8 - k * 0.8);
+      ctx.strokeStyle = "#ffd166";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(me.marker.x, me.marker.y, r, r * 0.55, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // 발걸음 먼지
+    for (let i = puffs.length - 1; i >= 0; i--) {
+      const p = puffs[i];
+      const age = (nowMs - p.born) / 620;
+      if (age >= 1) { puffs.splice(i, 1); continue; }
+      ctx.save();
+      ctx.globalAlpha = 0.22 * (1 - age);
+      ctx.fillStyle = "#ffeccd";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - age * 4, 2.5 + age * 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     for (let i = bubbles.length - 1; i >= 0; i--) {
       const b = bubbles[i];
       if (b.until <= nowMs) { bubbles.splice(i, 1); continue; }

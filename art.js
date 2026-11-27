@@ -1125,6 +1125,12 @@
   function drawCharacter(g, c, t) {
     const x = c.x;
     const y = c.y;
+    const SCALE = 1.1;
+    g.save();
+    g.translate(x, y);
+    g.scale(SCALE, SCALE);
+    g.translate(-x, -y);
+
     const color = colorOf(c);
     const dark = shade(color, -0.38);
     const light = shade(color, 0.28);
@@ -1213,7 +1219,7 @@
     g.fillStyle = online ? "#5ef2c0" : "#7d7391";
     g.fill();
 
-    if (c.plain) return;
+    if (c.plain) { g.restore(); return; }
 
     // 이름표
     const name = String(c.name || "피클");
@@ -1258,6 +1264,8 @@
       g.closePath();
       g.fill();
     }
+
+    g.restore();
   }
 
   /* ---------------- 타이틀 화면 ---------------- */
