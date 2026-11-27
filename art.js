@@ -843,7 +843,7 @@
 
     // 타원 러그
     g.save();
-    g.globalAlpha = 0.22;
+    g.globalAlpha = 0.16;
     g.fillStyle = "#3f6a92";
     g.beginPath();
     g.ellipse(965, 208, 246, 152, 0, 0, Math.PI * 2);

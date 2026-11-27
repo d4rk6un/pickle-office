@@ -780,7 +780,7 @@ button { cursor: pointer; }
 .panel-body::-webkit-scrollbar { width: 8px; }
 .panel-body::-webkit-scrollbar-thumb { background: #4a3670; border-radius: 8px; }
 
-.block { display: flex; flex-direction: column; }
+.block { display: flex; flex-direction: column; min-width: 0; }
 
 .block h3 {
   margin: 0 0 7px;
@@ -1018,8 +1018,8 @@ button { cursor: pointer; }
 
 .two-col {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 .pin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
@@ -1037,7 +1037,7 @@ button { cursor: pointer; }
   line-height: 1.4;
 }
 
-.pin-text { flex: 1; min-width: 0; word-break: break-word; }
+.pin-text { flex: 1; min-width: 0; word-break: break-word; overflow-wrap: anywhere; }
 .pin-by { display: block; font-size: 9.5px; color: #7d719b; margin-top: 3px; font-family: var(--ui); }
 .pin-check {
   flex: 0 0 auto;
