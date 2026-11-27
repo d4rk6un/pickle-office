@@ -43,8 +43,8 @@
 
     { x: 28, y: 340, w: 252, h: 12 },
     { x: 350, y: 340, w: 262, h: 12 },
-    { x: 28, y: 392, w: 252, h: 12 },
-    { x: 350, y: 392, w: 262, h: 12 },
+    { x: 28, y: 392, w: 402, h: 12 },
+    { x: 500, y: 392, w: 112, h: 12 },
 
     { x: 676, y: 340, w: 244, h: 12 },
     { x: 990, y: 340, w: 262, h: 12 },
@@ -476,6 +476,37 @@
     px(g, cx + 10, cy - 6, 4, 18, "#41506e");
   }
 
+  function drawCooler(g, x, y) {
+    // 생수통
+    g.fillStyle = "rgba(150,210,240,0.6)";
+    g.beginPath();
+    g.ellipse(x + 19, y + 14, 15, 18, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "rgba(220,245,255,0.5)";
+    g.beginPath();
+    g.ellipse(x + 15, y + 9, 6, 9, -0.3, 0, Math.PI * 2);
+    g.fill();
+    // 본체
+    px(g, x, y + 26, 38, 44, "#cfd6e8");
+    px(g, x, y + 26, 38, 4, "#eef2fb");
+    px(g, x + 6, y + 38, 26, 8, "#8ea4c6");
+    px(g, x + 8, y + 52, 8, 6, "#6fa8ff");
+    px(g, x + 20, y + 52, 8, 6, "#ff87bd");
+    px(g, x + 4, y + 62, 30, 4, "#a5acc4");
+  }
+
+  function drawCabinet(g, x, y, w, h) {
+    px(g, x + 3, y + h - 2, w, 6, "rgba(30,20,40,0.2)");
+    px(g, x, y, w, h, "#8c93ad");
+    px(g, x, y, w, 5, "#b6bdd3");
+    const rows = 3;
+    const rh = (h - 8) / rows;
+    for (let i = 0; i < rows; i++) {
+      px(g, x + 4, y + 8 + i * rh, w - 8, rh - 4, "#a5acc4");
+      px(g, x + w / 2 - 10, y + 8 + i * rh + rh / 2 - 5, 20, 3, "#6e7590");
+    }
+  }
+
   function drawWhiteboard(g, x, y, w, h, variant) {
     px(g, x + 3, y + 3, w, h, "rgba(30,18,44,0.25)");
     px(g, x, y, w, h, "#e9eef5");
@@ -774,23 +805,10 @@
     px(g, 32, 92, 16, 2, "#a37c48");
 
     // 정수기
-    px(g, 560, 96, 34, 54, "#cfd6e8");
-    px(g, 560, 96, 34, 4, "#eef2fb");
-    px(g, 566, 108, 22, 8, "#8ea4c6");
-    px(g, 566, 122, 8, 6, "#6fa8ff");
-    px(g, 578, 122, 8, 6, "#ff87bd");
-    g.fillStyle = "rgba(150,210,240,0.55)";
-    g.beginPath();
-    g.ellipse(577, 78, 15, 20, 0, 0, Math.PI * 2);
-    g.fill();
+    drawCooler(g, 556, 84);
 
     // 파일 캐비닛
-    px(g, 556, 164, 44, 72, "#8c93ad");
-    px(g, 556, 164, 44, 5, "#b6bdd3");
-    for (let i = 0; i < 3; i++) {
-      px(g, 560, 172 + i * 22, 36, 18, "#a5acc4");
-      px(g, 568, 180 + i * 22, 20, 3, "#6e7590");
-    }
+    drawCabinet(g, 30, 120, 40, 74);
 
     // 바닥 케이블
     g.save();
@@ -886,16 +904,6 @@
     px(g, 236, 548, 24, 8, "#fdf7ea");
     px(g, 240, 546, 6, 4, "#b07a4a");
     px(g, 250, 545, 6, 4, "#c98a5a");
-
-    // 스탠딩 메뉴판
-    px(g, 430, 430, 46, 30, "#3a2f2a");
-    g.strokeStyle = "#8a5a38"; g.lineWidth = 2;
-    g.strokeRect(430, 430, 46, 30);
-    g.fillStyle = "#ffe9b0";
-    g.font = "bold 8px 'Galmuri11','Malgun Gothic',sans-serif";
-    g.fillText("LOUNGE", 437, 442);
-    g.fillText("☕ ☕", 440, 454);
-    px(g, 448, 460, 4, 12, "#6b4a2f");
   }
 
   function paintAway(g) {
@@ -974,7 +982,7 @@
   function paintDoors(g) {
     const mats = [
       { x: 282, y: 316, w: 66, h: 20 },
-      { x: 282, y: 358, w: 66, h: 20 },
+      { x: 432, y: 358, w: 66, h: 20 },
       { x: 922, y: 316, w: 66, h: 20 },
       { x: 922, y: 358, w: 66, h: 20 },
       { x: 356, y: 378, w: 20, h: 56 },
@@ -988,7 +996,7 @@
     // 문틀 (수평 구멍)
     const doorH = [
       { x1: 280, x2: 350, y: 340, h: 12 },
-      { x1: 280, x2: 350, y: 392, h: 12 },
+      { x1: 430, x2: 500, y: 392, h: 12 },
       { x1: 920, x2: 990, y: 340, h: 12 },
       { x1: 920, x2: 990, y: 392, h: 12 }
     ];
@@ -1079,7 +1087,6 @@
     list.push({ x: 546, y: 462, w: 26, h: 30 });        // 화분
     list.push({ x: 34, y: 552, w: 22, h: 26 });
     list.push({ x: 520, y: 642, w: 26, h: 20 });        // 램프
-    list.push({ x: 426, y: 426, w: 54, h: 48 });        // 메뉴판
 
     // 테라스
     list.push({ x: 736, y: 594, w: 104, h: 82 });
@@ -1096,7 +1103,7 @@
     list.push({ x: 34, y: 306, w: 22, h: 24 });
     list.push({ x: 28, y: 84, w: 22, h: 24 });          // 서류 상자
     list.push({ x: 556, y: 96, w: 40, h: 56 });         // 정수기
-    list.push({ x: 552, y: 160, w: 52, h: 78 });        // 파일 캐비닛
+    list.push({ x: 26, y: 116, w: 48, h: 82 });         // 파일 캐비닛
 
     // 회의실 화분
     list.push({ x: 694, y: 306, w: 24, h: 28 });

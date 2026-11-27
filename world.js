@@ -121,7 +121,7 @@
   const CORRIDOR = {
     ws: { x: 315, y: 370 },
     mt: { x: 955, y: 370 },
-    lg: { x: 315, y: 384 },
+    lg: { x: 465, y: 384 },
     aw: { x: 955, y: 384 },
     xl: { x: 644, y: 370 },
     xb: { x: 644, y: 596 },
@@ -136,7 +136,7 @@
     workspace: [{ node: "ws", inside: { x: 315, y: 318 }, outside: { x: 315, y: 370 } }],
     meeting: [{ node: "mt", inside: { x: 955, y: 318 }, outside: { x: 955, y: 370 } }],
     lounge: [
-      { node: "lg", inside: { x: 315, y: 424 }, outside: { x: 315, y: 384 } },
+      { node: "lg", inside: { x: 465, y: 424 }, outside: { x: 465, y: 384 } },
       { node: "lgs", inside: { x: 592, y: 596 }, outside: { x: 634, y: 596 } }
     ],
     away: [
