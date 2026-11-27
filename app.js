@@ -170,7 +170,18 @@
     const id = myAgentId();
     if (!id) return;
     if (state.agents[id]) { await touchPresence(); return; }
-    if (!(Store.has && Store.has("agents"))) return;
+
+    // Firebase 로컬 캐시가 먼저 "빈 목록"을 보낼 수 있습니다.
+    // 서버 스냅샷이 올 때까지 기다렸다가 프로필 창을 엽니다.
+    const known = Object.keys(state.agents).length > 0;
+    if (!known) {
+      const waited = Date.now() - (state.enterAt || 0);
+      if (waited < 7000) {
+        state.pendingProfile = true;
+        return;
+      }
+    }
+    if (!(Store.has && Store.has("agents"))) { state.pendingProfile = true; return; }
     openSetupModal(id);
   }
 
@@ -388,10 +399,11 @@
       name.textContent = me.name;
       role.textContent = me.role || (me.status || "오피스 접속 중");
     } else if (myAgentId()) {
-      avatar.textContent = "＋";
+      const loading = Date.now() - (state.enterAt || 0) < 7000;
+      avatar.textContent = loading ? "…" : "＋";
       avatar.style.background = COLORS.purple;
-      name.textContent = "프로필 설정";
-      role.textContent = "캐릭터를 만들어요";
+      name.textContent = loading ? "피클 불러오는 중" : "프로필 설정";
+      role.textContent = loading ? "잠시만요" : "캐릭터를 만들어요";
     } else {
       avatar.textContent = "?";
       avatar.style.background = COLORS.purple;
@@ -1150,6 +1162,7 @@
     codeInput.value = "";
     stopTitleScene();
     state.autoSuppressUntil = Date.now() + 2600;
+    state.enterAt = Date.now();
 
     if (!worldReady) {
       World.init({
@@ -1180,6 +1193,12 @@
       const spawn = World.zoneName ? World.zoneName() : "오피스";
       showZoneToast(World.zone ? World.zone() : "workspace", spawn);
     }, 260);
+
+    // 첫 데이터가 비어 있을 때를 대비해 잠시 뒤 한 번 더 확인
+    setTimeout(() => {
+      renderHud();
+      if (state.pendingProfile) ensureProfile().catch(() => {});
+    }, 7200);
   }
 
   function accessCodeMessage(err) {
