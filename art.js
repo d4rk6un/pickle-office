@@ -276,10 +276,10 @@
   }
 
   function paintRooms(g) {
-    paintCarpet(g, ROOMS.workspace, "#e7d3ae", "#c2a77b", "grid");
-    paintCarpet(g, ROOMS.meeting, "#aac6dc", "#7f9fbb", "diamond");
-    paintCarpet(g, ROOMS.lounge, "#e3b9a6", "#c08a75", "stripe");
-    paintCarpet(g, ROOMS.away, "#5f4d7d", "#4a3a63", "stars");
+    paintCarpet(g, ROOMS.workspace, "#e2cba3", "#b99a6c", "grid");
+    paintCarpet(g, ROOMS.meeting, "#a2c2da", "#7b9cba", "diamond");
+    paintCarpet(g, ROOMS.lounge, "#dcaf9a", "#b57f6a", "stripe");
+    paintCarpet(g, ROOMS.away, "#584674", "#443357", "stars");
   }
 
   /* ---------------- 벽 ---------------- */
@@ -485,7 +485,7 @@
 
     if (variant === "sprint") {
       g.fillStyle = "#4a5a73";
-      g.font = "bold 11px 'DungGeunMo','Malgun Gothic',sans-serif";
+      g.font = "bold 11px 'Galmuri11','Malgun Gothic',sans-serif";
       g.fillText("SPRINT 12", x + 8, y + 16);
       const notes = ["#ffd166", "#ff9f9f", "#9fe3ff", "#b6f0c8", "#e3c8ff"];
       for (let i = 0; i < 5; i++) {
@@ -501,7 +501,7 @@
       }
     } else {
       g.fillStyle = "#3f4a5c";
-      g.font = "bold 11px 'DungGeunMo','Malgun Gothic',sans-serif";
+      g.font = "bold 11px 'Galmuri11','Malgun Gothic',sans-serif";
       g.fillText("AGENDA", x + 10, y + 17);
       const colors = ["#ff87bd", "#6fa8ff", "#5ed3a3", "#ffb35c"];
       for (let i = 0; i < 4; i++) {
@@ -600,7 +600,7 @@
     g.strokeStyle = "#8a5a38"; g.lineWidth = 2;
     g.strokeRect(x + 246, y - 44, 72, 38);
     g.fillStyle = "#ffe9b0";
-    g.font = "bold 9px 'DungGeunMo','Malgun Gothic',sans-serif";
+    g.font = "bold 9px 'Galmuri11','Malgun Gothic',sans-serif";
     g.fillText("COFFEE", x + 256, y - 30);
     g.fillText("2,500", x + 260, y - 18);
 
@@ -731,7 +731,7 @@
     g.stroke();
     // zZ
     g.fillStyle = "rgba(255,255,255,0.85)";
-    g.font = "bold 10px 'DungGeunMo',monospace";
+    g.font = "bold 10px 'Galmuri11',monospace";
     g.fillText("z", x + 26, y - 20);
     g.fillText("Z", x + 34, y - 30);
   }
@@ -772,17 +772,80 @@
     // 서류 상자
     px(g, 32, 88, 16, 18, "#c9a06a");
     px(g, 32, 92, 16, 2, "#a37c48");
+
+    // 정수기
+    px(g, 560, 96, 34, 54, "#cfd6e8");
+    px(g, 560, 96, 34, 4, "#eef2fb");
+    px(g, 566, 108, 22, 8, "#8ea4c6");
+    px(g, 566, 122, 8, 6, "#6fa8ff");
+    px(g, 578, 122, 8, 6, "#ff87bd");
+    g.fillStyle = "rgba(150,210,240,0.55)";
+    g.beginPath();
+    g.ellipse(577, 78, 15, 20, 0, 0, Math.PI * 2);
+    g.fill();
+
+    // 파일 캐비닛
+    px(g, 556, 164, 44, 72, "#8c93ad");
+    px(g, 556, 164, 44, 5, "#b6bdd3");
+    for (let i = 0; i < 3; i++) {
+      px(g, 560, 172 + i * 22, 36, 18, "#a5acc4");
+      px(g, 568, 180 + i * 22, 20, 3, "#6e7590");
+    }
+
+    // 바닥 케이블
+    g.save();
+    g.globalAlpha = 0.35;
+    g.strokeStyle = "#3b2a4a";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(184, 150); g.bezierCurveTo(210, 170, 220, 186, 246, 190);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(356, 258); g.bezierCurveTo(380, 280, 400, 292, 430, 300);
+    g.stroke();
+    g.restore();
+
+    // 휴지통
+    px(g, 590, 236, 14, 18, "#5d6b8c");
+    px(g, 588, 234, 18, 4, "#7c8cb3");
   }
 
   function paintMeeting(g) {
     drawWhiteboard(g, 700, 46, 250, 50, "agenda");
+
+    // 타원 러그
+    g.save();
+    g.globalAlpha = 0.22;
+    g.fillStyle = "#3f6a92";
+    g.beginPath();
+    g.ellipse(965, 208, 246, 152, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = "rgba(255,255,255,0.3)";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.ellipse(965, 208, 224, 132, 0, 0, Math.PI * 2);
+    g.stroke();
+    g.restore();
+
     drawMeetingTable(g);
     drawPlant(g, 706, 320, 1);
     drawPlant(g, 1228, 316, 0.9);
-    // 회의실 러그
-    drawRug(g, 760, 100, 400, 210, "rgba(70,100,140,0.18)", "rgba(255,255,255,0.25)");
+
+    // 미니 사이드보드 + 생수
+    px(g, 690, 232, 42, 54, "#7b5232");
+    px(g, 690, 232, 42, 4, "#a06d44");
+    px(g, 694, 240, 34, 12, "#5d3c24");
+    px(g, 700, 220, 8, 14, "#9fd7f5");
+    px(g, 712, 218, 8, 16, "#9fd7f5");
+
     // 화상회의 카메라
     px(g, 664 + 8, 60, 10, 10, "#2a2c42");
+
+    // 천장 조명
+    [[820, 60], [970, 56], [1120, 60]].forEach(function (l) {
+      px(g, l[0] - 20, l[1], 40, 4, "#dce6f5");
+      px(g, l[0] - 12, l[1] + 4, 24, 3, "#fff3c4");
+    });
   }
 
   function paintLounge(g) {
@@ -802,6 +865,37 @@
     g.beginPath();
     g.moveTo(518, 658); g.lineTo(550, 658); g.lineTo(544, 640); g.lineTo(524, 640);
     g.closePath(); g.fill();
+
+    // 창 커튼
+    g.fillStyle = "#b46a72";
+    g.beginPath();
+    g.moveTo(8, 456); g.lineTo(40, 456); g.lineTo(34, 600); g.lineTo(8, 600);
+    g.closePath(); g.fill();
+    g.fillStyle = "rgba(255,255,255,0.14)";
+    for (let i = 0; i < 4; i++) px(g, 12 + i * 6, 462, 2, 132, "rgba(255,255,255,0.14)");
+
+    // 러그 술
+    g.save();
+    g.globalAlpha = 0.5;
+    for (let x = 70; x < 516; x += 8) {
+      px(g, x, 714, 4, 5, "#c98a74");
+    }
+    g.restore();
+
+    // 쿠키 접시
+    px(g, 236, 548, 24, 8, "#fdf7ea");
+    px(g, 240, 546, 6, 4, "#b07a4a");
+    px(g, 250, 545, 6, 4, "#c98a5a");
+
+    // 스탠딩 메뉴판
+    px(g, 430, 430, 46, 30, "#3a2f2a");
+    g.strokeStyle = "#8a5a38"; g.lineWidth = 2;
+    g.strokeRect(430, 430, 46, 30);
+    g.fillStyle = "#ffe9b0";
+    g.font = "bold 8px 'Galmuri11','Malgun Gothic',sans-serif";
+    g.fillText("LOUNGE", 437, 442);
+    g.fillText("☕ ☕", 440, 454);
+    px(g, 448, 460, 4, 12, "#6b4a2f");
   }
 
   function paintAway(g) {
@@ -829,8 +923,52 @@
     // 자리비움 표찰
     px(g, 704, 408, 62, 18, "#2b2142");
     g.fillStyle = "#cfc2ea";
-    g.font = "bold 10px 'DungGeunMo','Malgun Gothic',sans-serif";
+    g.font = "bold 10px 'Galmuri11','Malgun Gothic',sans-serif";
     g.fillText("🌙 QUIET", 708, 421);
+
+    // 스트링 라이트
+    g.save();
+    g.strokeStyle = "rgba(255,230,160,0.35)";
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(690, 424);
+    g.quadraticCurveTo(950, 452, 1240, 424);
+    g.stroke();
+    for (let i = 0; i < 11; i++) {
+      const lt = i / 10;
+      const lx = 690 + (1240 - 690) * lt;
+      const ly = 424 + Math.sin(Math.PI * lt) * 22;
+      px(g, lx - 1, ly, 2, 4, "#5a476f");
+      g.fillStyle = i % 2 ? "#ffd166" : "#ffb3c8";
+      g.beginPath(); g.arc(lx, ly + 5, 2.4, 0, Math.PI * 2); g.fill();
+    }
+    g.restore();
+
+    // 쿠션
+    g.fillStyle = "#e0a3b8";
+    g.beginPath(); g.ellipse(900, 690, 22, 9, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#8fd7c4";
+    g.beginPath(); g.ellipse(936, 700, 18, 8, 0, 0, Math.PI * 2); g.fill();
+
+    // 망원경
+    px(g, 1168, 660, 4, 34, "#5d6b8c");
+    px(g, 1160, 692, 20, 4, "#41506e");
+    g.save();
+    g.translate(1170, 656);
+    g.rotate(-0.5);
+    px(g, 0, -5, 26, 10, "#8c93ad");
+    px(g, 22, -7, 8, 14, "#6b7793");
+    g.restore();
+
+    // 종이 랜턴
+    px(g, 1090, 430, 28, 3, "#5a476f");
+    g.fillStyle = "rgba(255,226,160,0.85)";
+    g.beginPath(); g.ellipse(1104, 452, 13, 17, 0, 0, Math.PI * 2); g.fill();
+    g.save();
+    g.globalAlpha = 0.15;
+    g.fillStyle = "#ffe6a7";
+    g.beginPath(); g.arc(1104, 452, 46, 0, Math.PI * 2); g.fill();
+    g.restore();
   }
 
   function paintDoors(g) {
@@ -845,6 +983,36 @@
     mats.forEach(function (m) {
       px(g, m.x, m.y, m.w, m.h, "rgba(60,40,30,0.22)");
       px(g, m.x, m.y, m.w, 2, "rgba(255,220,150,0.35)");
+    });
+
+    // 문틀 (수평 구멍)
+    const doorH = [
+      { x1: 280, x2: 350, y: 340, h: 12 },
+      { x1: 280, x2: 350, y: 392, h: 12 },
+      { x1: 920, x2: 990, y: 340, h: 12 },
+      { x1: 920, x2: 990, y: 392, h: 12 }
+    ];
+    doorH.forEach(function (d) {
+      px(g, d.x1 - 5, d.y - 4, 6, d.h + 8, "#8a5a38");
+      px(g, d.x1 - 5, d.y - 4, 6, 3, "#ffd166");
+      px(g, d.x2 - 1, d.y - 4, 6, d.h + 8, "#8a5a38");
+      px(g, d.x2 - 1, d.y - 4, 6, 3, "#ffd166");
+      px(g, d.x1, d.y + 2, d.x2 - d.x1, d.h - 4, "rgba(255,226,170,0.16)");
+    });
+
+    // 문틀 (수직 구멍)
+    const doorV = [
+      { y1: 150, y2: 220, x: 612, w: 12 },
+      { y1: 150, y2: 220, x: 664, w: 12 },
+      { y1: 560, y2: 630, x: 612, w: 12 },
+      { y1: 560, y2: 630, x: 664, w: 12 }
+    ];
+    doorV.forEach(function (d) {
+      px(g, d.x - 4, d.y1 - 5, d.w + 8, 6, "#8a5a38");
+      px(g, d.x - 4, d.y1 - 5, 3, 6, "#ffd166");
+      px(g, d.x - 4, d.y2 - 1, d.w + 8, 6, "#8a5a38");
+      px(g, d.x - 4, d.y2 - 1, 3, 6, "#ffd166");
+      px(g, d.x + 2, d.y1, d.w - 4, d.y2 - d.y1, "rgba(255,226,170,0.14)");
     });
   }
 
@@ -907,9 +1075,11 @@
     list.push({ x: 314, y: 610, w: 80, h: 78 });        // 암체어
     list.push({ x: 146, y: 530, w: 134, h: 64 });       // 커피 테이블
     list.push({ x: 466, y: 496, w: 72, h: 158 });       // 책장
+    // 화분/소품
     list.push({ x: 546, y: 462, w: 26, h: 30 });        // 화분
     list.push({ x: 34, y: 552, w: 22, h: 26 });
     list.push({ x: 520, y: 642, w: 26, h: 20 });        // 램프
+    list.push({ x: 426, y: 426, w: 54, h: 48 });        // 메뉴판
 
     // 테라스
     list.push({ x: 736, y: 594, w: 104, h: 82 });
@@ -918,16 +1088,20 @@
     list.push({ x: 1078, y: 466, w: 78, h: 136 });
     list.push({ x: 1198, y: 686, w: 26, h: 30 });
     list.push({ x: 694, y: 470, w: 22, h: 26 });
+    list.push({ x: 1156, y: 636, w: 40, h: 66 });       // 망원경
 
     // 작업실 소품
     list.push({ x: 28, y: 206, w: 24, h: 108 });        // 선반
     list.push({ x: 586, y: 288, w: 22, h: 26 });        // 화분
     list.push({ x: 34, y: 306, w: 22, h: 24 });
     list.push({ x: 28, y: 84, w: 22, h: 24 });          // 서류 상자
+    list.push({ x: 556, y: 96, w: 40, h: 56 });         // 정수기
+    list.push({ x: 552, y: 160, w: 52, h: 78 });        // 파일 캐비닛
 
     // 회의실 화분
     list.push({ x: 694, y: 306, w: 24, h: 28 });
     list.push({ x: 1216, y: 304, w: 24, h: 26 });
+    list.push({ x: 686, y: 228, w: 50, h: 62 });        // 사이드보드
 
     return list;
   }
@@ -1007,7 +1181,7 @@
 
     // 얼굴 (한국어 자음)
     g.fillStyle = "#2b1f3d";
-    g.font = "bold 12px 'DungGeunMo','Malgun Gothic',sans-serif";
+    g.font = "bold 12px 'Galmuri11','Malgun Gothic',sans-serif";
     g.textAlign = "center";
     g.textBaseline = "middle";
     g.fillText(glyph, x, hy + 9.5);
@@ -1044,7 +1218,7 @@
     // 이름표
     const name = String(c.name || "피클");
     const role = String(c.role || "");
-    g.font = "600 9px 'DungGeunMo','Malgun Gothic',sans-serif";
+    g.font = "600 9px 'Galmuri11','Malgun Gothic',sans-serif";
     const nameW = Math.max(26, g.measureText(name).width + (isMe ? 18 : 10));
     const tagX = x - nameW / 2;
     const tagY = hy - 16;
@@ -1064,7 +1238,7 @@
     g.textAlign = "left";
 
     if (role) {
-      g.font = "8px 'DungGeunMo','Malgun Gothic',sans-serif";
+      g.font = "8px 'Galmuri11','Malgun Gothic',sans-serif";
       g.textAlign = "center";
       const roleW = g.measureText(role).width + 8;
       roundRect(g, x - roleW / 2, tagY - 12, roleW, 11, 3, "rgba(20,14,32,0.72)");
@@ -1089,132 +1263,188 @@
   /* ---------------- 타이틀 화면 ---------------- */
 
   function drawTitleScene(g, w, h, t) {
-    const grad = g.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, "#120c1f");
-    grad.addColorStop(0.45, "#2a1c46");
-    grad.addColorStop(0.78, "#5b2f5e");
-    grad.addColorStop(1, "#b45b6e");
-    g.fillStyle = grad;
-    g.fillRect(0, 0, w, h);
+    const horizon = h * 0.78;
 
-    // 별
-    for (let i = 0; i < 90; i++) {
-      const sx = (hashOf("ts" + i) % 1000) / 1000 * w;
-      const sy = (hashOf("ty" + i) % 620) / 1000 * h * 0.7;
-      const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * (0.6 + (i % 5) * 0.2) + i));
-      g.globalAlpha = tw * 0.9;
-      px(g, sx, sy, i % 7 === 0 ? 2 : 1, i % 7 === 0 ? 2 : 1, "#ffffff");
-    }
-    g.globalAlpha = 1;
+    /* 하늘 */
+    const sky = g.createLinearGradient(0, 0, 0, horizon);
+    sky.addColorStop(0, "#150e29");
+    sky.addColorStop(0.3, "#33204f");
+    sky.addColorStop(0.58, "#703560");
+    sky.addColorStop(0.82, "#b95f68");
+    sky.addColorStop(1, "#eb9a6e");
+    g.fillStyle = sky;
+    g.fillRect(0, 0, w, horizon);
 
-    // 달
-    const mx = w * 0.78;
-    const my = h * 0.2;
+    /* 별 */
     g.save();
-    g.globalAlpha = 0.18;
-    g.fillStyle = "#ffeec2";
-    g.beginPath(); g.arc(mx, my, 64, 0, Math.PI * 2); g.fill();
-    g.restore();
-    g.fillStyle = "#ffeec2";
-    g.beginPath(); g.arc(mx, my, 34, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#f0d9a0";
-    g.beginPath(); g.arc(mx - 10, my - 6, 7, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.arc(mx + 12, my + 9, 5, 0, Math.PI * 2); g.fill();
-
-    // 구름
-    g.globalAlpha = 0.14;
-    for (let i = 0; i < 5; i++) {
-      const cx = ((hashOf("c" + i) % 1000) / 1000) * w + Math.sin(t * 0.1 + i) * 20;
-      const cy = h * (0.16 + i * 0.07);
-      px(g, cx, cy, 90, 8, "#ffffff");
-      px(g, cx + 18, cy - 7, 56, 8, "#ffffff");
+    for (let i = 0; i < 120; i++) {
+      const sx = (hashOf("ts" + i) % 1000) / 1000 * w;
+      const sy = (hashOf("ty" + i) % 1000) / 1000 * horizon * 0.7;
+      const tw = 0.28 + 0.72 * Math.abs(Math.sin(t * (0.5 + (i % 6) * 0.15) + i));
+      g.globalAlpha = tw * 0.85;
+      g.fillStyle = i % 9 === 0 ? "#ffd9a0" : "#ffffff";
+      const size = i % 13 === 0 ? 2 : 1;
+      g.fillRect(sx, sy, size, size);
     }
-    g.globalAlpha = 1;
+    g.restore();
 
-    // 원경 스카이라인
-    const baseY = h * 0.74;
-    g.fillStyle = "#1c1230";
-    for (let i = 0; i < 14; i++) {
-      const bw = w / 16 + (hashOf("bw" + i) % 26);
-      const bh = h * (0.08 + (hashOf("bh" + i) % 22) / 100);
-      const bx = i * (w / 14) - 10;
-      g.fillRect(bx, baseY - bh, bw, bh);
-      g.fillStyle = "rgba(255,214,120,0.5)";
-      for (let r = 0; r < 3; r++) {
+    /* 달 */
+    const mx = w * 0.84;
+    const my = h * 0.16;
+    const mr = Math.min(w, h) * 0.072;
+    const glow = g.createRadialGradient(mx, my, mr * 0.4, mx, my, mr * 4.4);
+    glow.addColorStop(0, "rgba(255,238,190,0.34)");
+    glow.addColorStop(0.42, "rgba(255,214,150,0.10)");
+    glow.addColorStop(1, "rgba(255,214,150,0)");
+    g.fillStyle = glow;
+    g.beginPath(); g.arc(mx, my, mr * 4.4, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#fff3cf";
+    g.beginPath(); g.arc(mx, my, mr, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "rgba(226,196,140,0.5)";
+    g.beginPath(); g.arc(mx - mr * 0.3, my - mr * 0.18, mr * 0.2, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(mx + mr * 0.34, my + mr * 0.26, mr * 0.13, 0, Math.PI * 2); g.fill();
+
+    /* 구름 */
+    g.save();
+    g.globalAlpha = 0.15;
+    for (let i = 0; i < 4; i++) {
+      const cw = w * (0.2 + i * 0.05);
+      const cx = ((hashOf("cl" + i) % 1000) / 1000) * w + Math.sin(t * 0.05 + i) * 26;
+      const cy = horizon * (0.46 + i * 0.1);
+      px(g, cx, cy, cw, 7, "#ffd6c0");
+      px(g, cx + cw * 0.16, cy - 6, cw * 0.46, 7, "#ffd6c0");
+    }
+    g.restore();
+
+    /* 원경 스카이라인 */
+    for (let i = 0; i < 18; i++) {
+      const bw = w / 22 + (hashOf("bw" + i) % 30);
+      const bh = horizon * (0.09 + (hashOf("bh" + i) % 24) / 100);
+      const bx = i * (w / 17) - 12;
+      g.fillStyle = "#241637";
+      g.fillRect(bx, horizon - bh, bw, bh);
+      g.fillStyle = "rgba(255,208,120,0.4)";
+      for (let r = 0; r < 4; r++) {
         for (let c = 0; c < 2; c++) {
           if (hashOf("win" + i + r + c) % 3 === 0) {
-            g.fillRect(bx + 8 + c * 12, baseY - bh + 10 + r * 14, 5, 6);
+            g.fillRect(bx + 7 + c * 11, horizon - bh + 8 + r * 12, 4, 5);
           }
         }
       }
-      g.fillStyle = "#1c1230";
     }
 
-    // 사무실 빌딩
-    const bw2 = Math.min(w * 0.5, 520);
-    const bx2 = w / 2 - bw2 / 2;
-    const by2 = baseY - Math.min(h * 0.36, 250);
-    g.fillStyle = "#2c2140";
-    g.fillRect(bx2, by2, bw2, baseY - by2);
-    g.fillStyle = "#3b2d55";
-    g.fillRect(bx2, by2, bw2, 8);
-    // 옥상 간판
-    px(g, bx2 + bw2 / 2 - 74, by2 - 34, 148, 26, "#1c1230");
+    /* 오피스 타워 */
+    const tw2 = Math.min(w * 0.26, 520);
+    const tx = w * 0.79 - tw2 / 2;
+    const ty = horizon * 0.36;
+    const towerH = horizon - ty;
+    g.fillStyle = "#2b1f42";
+    g.fillRect(tx, ty, tw2, towerH);
+    px(g, tx, ty, tw2, 8, "#43305f");
+    px(g, tx, ty, 6, towerH, "#392a54");
+    px(g, tx + tw2 - 6, ty, 6, towerH, "#211735");
+
+    // 옥상 안테나 + 표지
+    px(g, tx + tw2 / 2 - 2, ty - 30, 4, 30, "#4a3768");
+    g.fillStyle = "#ff5d7a";
+    g.beginPath();
+    g.arc(tx + tw2 / 2, ty - 32, 3 + Math.sin(t * 3) * 1.2, 0, Math.PI * 2);
+    g.fill();
+
+    const signW = Math.min(tw2 * 0.8, 260);
+    const signX = tx + tw2 / 2 - signW / 2;
+    px(g, signX, ty + 18, signW, 30, "#160f26");
     g.strokeStyle = "#ffd166";
     g.lineWidth = 2;
-    g.strokeRect(bx2 + bw2 / 2 - 74, by2 - 34, 148, 26);
+    g.strokeRect(signX + 1, ty + 19, signW - 2, 28);
     g.fillStyle = "#ffd166";
-    g.font = "bold 13px 'DungGeunMo','Malgun Gothic',sans-serif";
+    g.font = "bold " + Math.max(11, Math.round(tw2 * 0.052)) + "px 'Galmuri11','Malgun Gothic',sans-serif";
     g.textAlign = "center";
-    g.fillText("합동 비서실", bx2 + bw2 / 2, by2 - 15);
+    g.fillText("합동 비서실", tx + tw2 / 2, ty + 40);
     g.textAlign = "left";
 
-    // 창문들
-    const cols = 7;
-    const rows = 3;
-    const cw = (bw2 - 40) / cols;
+    // 창문
+    const cols = 6;
+    const rows = 8;
+    const cw2 = (tw2 - 44) / cols;
+    const chh = (towerH - 90) / rows;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const lit = (hashOf("L" + r + c) % 5) !== 0;
-        const wx = bx2 + 20 + c * cw + 4;
-        const wy = by2 + 22 + r * ((baseY - by2 - 40) / rows);
-        g.fillStyle = lit ? "rgba(255,214,120,0.85)" : "#211a33";
-        g.fillRect(wx, wy, cw - 10, 18);
+        const wx = tx + 22 + c * cw2 + 3;
+        const wy = ty + 60 + r * chh;
+        if (wy + chh * 0.55 > horizon - 6) continue;
+        g.fillStyle = lit ? (hashOf("warm" + r + c) % 4 === 0 ? "rgba(255,180,120,0.95)" : "rgba(255,226,150,0.9)") : "#1b1330";
+        g.fillRect(wx, wy, cw2 - 7, chh * 0.55);
         if (lit) {
-          g.fillStyle = "rgba(40,25,10,0.45)";
-          g.fillRect(wx + 2, wy + 6, cw - 14, 2);
+          g.fillStyle = "rgba(40,25,10,0.35)";
+          g.fillRect(wx + 2, wy + chh * 0.28, cw2 - 11, 1.5);
         }
       }
     }
-    // 입구
-    const doorW = 54;
-    px(g, bx2 + bw2 / 2 - doorW / 2, baseY - 54, doorW, 54, "#ffd166");
-    px(g, bx2 + bw2 / 2 - doorW / 2 + 6, baseY - 48, doorW - 12, 42, "#3a2a14");
 
-    // 바닥
-    px(g, 0, baseY, w, h - baseY, "#171126");
-    px(g, 0, baseY, w, 3, "#3b2d55");
-    g.globalAlpha = 0.18;
-    for (let x = -40; x < w + 40; x += 48) {
-      g.strokeStyle = "#6b56a0";
-      g.lineWidth = 1;
-      g.beginPath(); g.moveTo(x, baseY); g.lineTo(x - 60, h); g.stroke();
+    // 입구 불빛
+    const doorW = Math.min(tw2 * 0.22, 64);
+    px(g, tx + tw2 / 2 - doorW / 2, horizon - 44, doorW, 44, "#ffcf5c");
+    px(g, tx + tw2 / 2 - doorW / 2 + 6, horizon - 38, doorW - 12, 34, "#3a2a14");
+
+    /* 거리 */
+    px(g, 0, horizon, w, h - horizon, "#171024");
+    px(g, 0, horizon, w, 3, "#4a3768");
+    px(g, 0, h * 0.84, w, 6, "#2c2140");
+    px(g, 0, h * 0.845, w, h * 0.155, "#221830");
+
+    g.save();
+    g.globalAlpha = 0.2;
+    g.strokeStyle = "#8b74b8";
+    g.lineWidth = 1;
+    for (let x = -w * 0.2; x < w * 1.2; x += 74) {
+      g.beginPath();
+      g.moveTo(w / 2 + (x - w / 2) * 0.35, horizon + 4);
+      g.lineTo(x, h);
+      g.stroke();
     }
-    for (let y = baseY + 20; y < h; y += 26) {
+    for (let y = horizon + 16; y < h; y += 26) {
       g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
     }
-    g.globalAlpha = 1;
+    g.restore();
 
-    // 걷는 피클들
+    // 횡단보도
+    g.save();
+    g.globalAlpha = 0.12;
+    for (let i = 0; i < 9; i++) {
+      px(g, w * 0.06 + i * 34, h * 0.885, 20, 6, "#ffffff");
+    }
+    g.restore();
+
+    /* 가로등 */
+    [[w * 0.075, 1], [w * 0.955, -1]].forEach(function (lamp) {
+      const lx = lamp[0];
+      const base = h * 0.845;
+      px(g, lx - 2, base - h * 0.2, 4, h * 0.2, "#3a2b52");
+      px(g, lx - 12, base - h * 0.2 - 6, 24, 8, "#4a3768");
+      const lg = g.createRadialGradient(lx, base - h * 0.19, 4, lx, base - h * 0.19, 90);
+      lg.addColorStop(0, "rgba(255,214,130,0.35)");
+      lg.addColorStop(1, "rgba(255,214,130,0)");
+      g.fillStyle = lg;
+      g.beginPath(); g.arc(lx, base - h * 0.19, 90, 0, Math.PI * 2); g.fill();
+      px(g, lx - 8, base - h * 0.2 - 4, 16, 5, "#ffe6a7");
+    });
+
+    /* 걷는 피클들 */
     const walkers = [
-      { color: "#ff87bd", glyph: "ㅈ", x: (t * 34) % (w + 200) - 100, y: baseY + 46, dir: 1, name: "찐구리" },
-      { color: "#6fa8ff", glyph: "ㅅ", x: w - ((t * 26) % (w + 240)) + 40, y: baseY + 82, dir: -1, name: "싱싱" },
-      { color: "#5ed3a3", glyph: "ㅁ", x: (t * 20 + 260) % (w + 300) - 150, y: baseY + 118, dir: 1, name: "피클" }
+      { color: "#ff87bd", glyph: "ㅈ", y: h * 0.895, speed: 30, off: 0.0, scale: 2.5, dir: 1 },
+      { color: "#6fa8ff", glyph: "ㅅ", y: h * 0.94, speed: 22, off: 0.45, scale: 2.9, dir: -1 },
+      { color: "#5ed3a3", glyph: "ㅁ", y: h * 0.9, speed: 26, off: 0.75, scale: 2.2, dir: 1 },
+      { color: "#ffc94d", glyph: "ㄱ", y: h * 0.965, speed: 18, off: 0.25, scale: 3.2, dir: -1 }
     ];
     walkers.forEach(function (wk, i) {
+      const span = w + 260;
+      const base = (t * wk.speed + wk.off * span) % span;
+      const x = wk.dir > 0 ? base - 130 : w + 130 - base;
       g.save();
-      g.translate(wk.x, wk.y);
-      g.scale(wk.dir * 1.7, 1.7);
+      g.translate(x, wk.y + Math.sin(t * 2 + i) * 1.5);
+      g.scale(wk.dir * wk.scale, wk.scale);
       drawCharacter(g, {
         id: "title" + i,
         name: "",
@@ -1232,14 +1462,27 @@
       g.restore();
     });
 
-    // 불티
-    g.globalAlpha = 0.5;
-    for (let i = 0; i < 16; i++) {
+    /* 불티 */
+    g.save();
+    for (let i = 0; i < 20; i++) {
       const fx = ((hashOf("fx" + i) % 1000) / 1000) * w;
-      const fy = h * 0.62 + Math.sin(t * 0.7 + i) * 22 - ((t * 8 + i * 30) % 90);
-      px(g, fx, fy, 2, 2, i % 2 ? "#ffd166" : "#ff9fb8");
+      const fy = horizon * 0.9 - ((t * 14 + i * 40) % (horizon * 0.5)) + Math.sin(t * 0.8 + i) * 16;
+      g.globalAlpha = 0.35 + 0.35 * Math.sin(t * 1.6 + i);
+      px(g, fx, fy, 2, 2, i % 3 === 0 ? "#ffd166" : "#ff9fb8");
     }
-    g.globalAlpha = 1;
+    g.restore();
+
+    /* 위아래 비네트 */
+    const top = g.createLinearGradient(0, 0, 0, h * 0.22);
+    top.addColorStop(0, "rgba(8,4,16,0.7)");
+    top.addColorStop(1, "rgba(8,4,16,0)");
+    g.fillStyle = top;
+    g.fillRect(0, 0, w, h * 0.22);
+    const bot = g.createLinearGradient(0, h * 0.72, 0, h);
+    bot.addColorStop(0, "rgba(8,4,16,0)");
+    bot.addColorStop(1, "rgba(8,4,16,0.82)");
+    g.fillStyle = bot;
+    g.fillRect(0, h * 0.72, w, h * 0.28);
   }
 
   window.OfficeArt = {

@@ -29,7 +29,7 @@
   let meReady = false;
 
   const me = {
-    x: 300, y: 318, target: null, walkT: 0, moving: false,
+    x: 300, y: 318, target: null, path: [], walkT: 0, moving: false,
     facing: 1, zone: "workspace", blocked: 0
   };
 
@@ -103,6 +103,139 @@
 
   function displayZone(zone) {
     return zone === "hallway" ? "복도" : (Art.ROOMS[zone] ? Art.ROOMS[zone].name : "복도");
+  }
+
+  function roomKeyAt(x, y) {
+    const order = Art.ROOM_ORDER;
+    for (let i = 0; i < order.length; i++) {
+      const r = Art.ROOMS[order[i]].rect;
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return order[i];
+    }
+    return "hallway";
+  }
+
+  /* ---------------- 문 · 복도 길찾기 ---------------- */
+
+  const CORRIDOR = {
+    ws: { x: 315, y: 370 },
+    mt: { x: 955, y: 370 },
+    lg: { x: 315, y: 384 },
+    aw: { x: 955, y: 384 },
+    xl: { x: 644, y: 370 },
+    xb: { x: 644, y: 596 },
+    lgs: { x: 634, y: 596 },
+    aws: { x: 654, y: 596 }
+  };
+  const CORR_EDGES = [
+    ["ws", "xl"], ["mt", "xl"], ["lg", "ws"], ["aw", "mt"],
+    ["xl", "xb"], ["xb", "lgs"], ["xb", "aws"]
+  ];
+  const GATES = {
+    workspace: [{ node: "ws", inside: { x: 315, y: 318 }, outside: { x: 315, y: 370 } }],
+    meeting: [{ node: "mt", inside: { x: 955, y: 318 }, outside: { x: 955, y: 370 } }],
+    lounge: [
+      { node: "lg", inside: { x: 315, y: 424 }, outside: { x: 315, y: 384 } },
+      { node: "lgs", inside: { x: 592, y: 596 }, outside: { x: 634, y: 596 } }
+    ],
+    away: [
+      { node: "aw", inside: { x: 955, y: 424 }, outside: { x: 955, y: 384 } },
+      { node: "aws", inside: { x: 700, y: 596 }, outside: { x: 654, y: 596 } }
+    ]
+  };
+
+  function neighbours(node) {
+    const out = [];
+    CORR_EDGES.forEach(function (e) {
+      if (e[0] === node) out.push(e[1]);
+      if (e[1] === node) out.push(e[0]);
+    });
+    return out;
+  }
+
+  function bfs(fromNodes, toNodes) {
+    const queue = [];
+    const prev = {};
+    fromNodes.forEach(function (n) { prev[n] = null; queue.push(n); });
+    while (queue.length) {
+      const cur = queue.shift();
+      if (toNodes.indexOf(cur) >= 0) {
+        const path = [];
+        let at = cur;
+        while (at) { path.unshift(at); at = prev[at]; }
+        return path;
+      }
+      neighbours(cur).forEach(function (next) {
+        if (prev.hasOwnProperty(next)) return;
+        prev[next] = cur;
+        queue.push(next);
+      });
+    }
+    return null;
+  }
+
+  function nearestCorridor(x, y) {
+    let best = "xl";
+    let dist = Infinity;
+    Object.keys(CORRIDOR).forEach(function (k) {
+      const n = CORRIDOR[k];
+      const d = Math.hypot(n.x - x, n.y - y);
+      if (d < dist) { dist = d; best = k; }
+    });
+    return best;
+  }
+
+  function buildPath(tx, ty) {
+    const from = roomKeyAt(me.x, me.y);
+    const to = roomKeyAt(tx, ty);
+    const target = { x: clamp(tx, 40, W - 40), y: clamp(ty, 40, H - 40) };
+    if (from === to) return [target];
+
+    const startGates = GATES[from] || [{
+      node: nearestCorridor(me.x, me.y), inside: null, outside: CORRIDOR[nearestCorridor(me.x, me.y)]
+    }];
+    const endGates = GATES[to] || [{
+      node: nearestCorridor(tx, ty), inside: null, outside: CORRIDOR[nearestCorridor(tx, ty)]
+    }];
+
+    let bestPath = null;
+    let bestStart = null;
+    let bestEnd = null;
+    startGates.forEach(function (g1) {
+      endGates.forEach(function (g2) {
+        const nodes = bfs([g1.node], [g2.node]);
+        if (!nodes) return;
+        const px = (g1.inside ? Math.hypot(g1.inside.x - me.x, g1.inside.y - me.y) : 0);
+        const score = nodes.length * 100 + px;
+        if (!bestPath || score < bestPath.score) {
+          bestPath = { score: score, nodes: nodes };
+          bestStart = g1;
+          bestEnd = g2;
+        }
+      });
+    });
+
+    if (!bestPath) return [target];
+
+    const pts = [];
+    if (bestStart.inside) pts.push(bestStart.inside);
+    if (bestStart.outside) pts.push(bestStart.outside);
+    bestPath.nodes.forEach(function (key) {
+      if (key === bestStart.node) return;
+      if (key === bestEnd.node) return;
+      pts.push(CORRIDOR[key]);
+    });
+    if (bestEnd.outside) pts.push(bestEnd.outside);
+    if (bestEnd.inside) pts.push(bestEnd.inside);
+    pts.push(target);
+
+    // 가까운 중복 지점 정리
+    const clean = [];
+    pts.forEach(function (p) {
+      const last = clean[clean.length - 1];
+      if (last && Math.hypot(last.x - p.x, last.y - p.y) < 8) return;
+      clean.push(p);
+    });
+    return clean;
   }
 
   /* ---------------- 사운드 ---------------- */
@@ -242,6 +375,7 @@
     meReady = false;
     if (!meId) {
       me.target = null;
+      me.path = [];
       keys.clear();
       return;
     }
@@ -288,12 +422,17 @@
 
     if (vx || vy) {
       me.target = null;
+      me.path = [];
     } else if (me.target) {
       const dx = me.target.x - me.x;
       const dy = me.target.y - me.y;
       const d = Math.hypot(dx, dy);
       if (d < 6) {
-        me.target = null;
+        if (me.path && me.path.length) {
+          me.target = me.path.shift();
+        } else {
+          me.target = null;
+        }
       } else {
         vx = dx / d;
         vy = dy / d;
@@ -311,9 +450,15 @@
       const ok = tryMove(vx * dist, vy * dist);
       if (!ok) {
         me.blocked += dt;
-        if (me.blocked > 0.35 && me.target) {
-          me.target = null;
-          me.moving = false;
+        if (me.blocked > 0.5 && me.target) {
+          if (me.path && me.path.length > 1) {
+            me.target = me.path.shift();
+            me.blocked = 0;
+          } else {
+            me.target = null;
+            me.path = [];
+            me.moving = false;
+          }
         }
       } else {
         me.blocked = 0;
@@ -358,6 +503,7 @@
     me.x = spawn.x;
     me.y = spawn.y;
     me.target = null;
+    me.path = [];
     me.zone = zoneAt(me.x, me.y);
     me.walkT += 0.2;
     meReady = true;
@@ -368,7 +514,11 @@
   }
 
   function moveToward(x, y) {
-    me.target = { x: clamp(x, 40, W - 40), y: clamp(y, 40, H - 40) };
+    const pts = buildPath(x, y);
+    if (!pts.length) return;
+    me.target = pts[0];
+    me.path = pts.slice(1);
+    me.blocked = 0;
   }
 
   function hold(dir, on) {
@@ -386,7 +536,7 @@
     if (!agentId || !text) return;
     const now = performance.now();
     const body = String(text).slice(0, 160);
-    const dur = kind === "emoji" ? 2600 : Math.min(8000, 2600 + body.length * 55);
+    const dur = kind === "emoji" ? 3400 : Math.min(12000, 3000 + body.length * 60);
     for (let i = bubbles.length - 1; i >= 0; i--) {
       if (bubbles[i].agentId === agentId) bubbles.splice(i, 1);
     }
@@ -601,13 +751,12 @@
       ctx.drawImage(staticCanvas, 0, 0, staticCanvas.width, staticCanvas.height, 0, 0, W, H);
     }
 
-    drawAmbient(ctx, now);
+    // 월드 외곽 프레임
+    ctx.strokeStyle = "rgba(120, 92, 170, 0.35)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(1.5, 1.5, W - 3, H - 3);
 
-    // 구역 아이콘 (살아있는 오브젝트 표시)
-    drawZoneBadge(ctx, 468, 66, "🛠️", now / 1000);
-    drawZoneBadge(ctx, 970, 108, "🗓️", now / 1000);
-    drawZoneBadge(ctx, 372, 402, "☕", now / 1000);
-    drawZoneBadge(ctx, 1006, 522, "🌙", now / 1000);
+    drawAmbient(ctx, now);
 
     // 캐릭터 (y 순서로 정렬해 겹침 처리)
     const list = [];
