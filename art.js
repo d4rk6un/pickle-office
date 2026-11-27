@@ -1429,8 +1429,8 @@
     g.textAlign = "left";
 
     // 창문
-    const cols = 6;
-    const rows = 8;
+    const cols = 8;
+    const rows = 10;
     const cw2 = (tw2 - 44) / cols;
     const chh = (towerH - 90) / rows;
     for (let r = 0; r < rows; r++) {
@@ -1438,12 +1438,12 @@
         const lit = (hashOf("L" + r + c) % 5) !== 0;
         const wx = tx + 22 + c * cw2 + 3;
         const wy = ty + 60 + r * chh;
-        if (wy + chh * 0.55 > horizon - 6) continue;
+        if (wy + chh * 0.45 > horizon - 6) continue;
         g.fillStyle = lit ? (hashOf("warm" + r + c) % 4 === 0 ? "rgba(255,180,120,0.95)" : "rgba(255,226,150,0.9)") : "#1b1330";
-        g.fillRect(wx, wy, cw2 - 7, chh * 0.55);
+        g.fillRect(wx, wy, cw2 - 6, chh * 0.45);
         if (lit) {
           g.fillStyle = "rgba(40,25,10,0.35)";
-          g.fillRect(wx + 2, wy + chh * 0.28, cw2 - 11, 1.5);
+          g.fillRect(wx + 2, wy + chh * 0.22, cw2 - 10, 1.5);
         }
       }
     }
@@ -1498,10 +1498,10 @@
 
     /* 걷는 피클들 */
     const walkers = [
-      { color: "#ff87bd", glyph: "ㅈ", y: h * 0.895, speed: 30, off: 0.0, scale: 2.5, dir: 1 },
-      { color: "#6fa8ff", glyph: "ㅅ", y: h * 0.94, speed: 22, off: 0.45, scale: 2.9, dir: -1 },
-      { color: "#5ed3a3", glyph: "ㅁ", y: h * 0.9, speed: 26, off: 0.75, scale: 2.2, dir: 1 },
-      { color: "#ffc94d", glyph: "ㄱ", y: h * 0.965, speed: 18, off: 0.25, scale: 3.2, dir: -1 }
+      { color: "#ff87bd", glyph: "ㅈ", y: h * 0.925, speed: 30, off: 0.0, scale: 1.5, dir: 1 },
+      { color: "#6fa8ff", glyph: "ㅅ", y: h * 0.965, speed: 22, off: 0.45, scale: 1.75, dir: -1 },
+      { color: "#5ed3a3", glyph: "ㅁ", y: h * 0.94, speed: 26, off: 0.75, scale: 1.35, dir: 1 },
+      { color: "#ffc94d", glyph: "ㄱ", y: h * 0.985, speed: 18, off: 0.25, scale: 1.9, dir: -1 }
     ];
     walkers.forEach(function (wk, i) {
       const span = w + 260;
