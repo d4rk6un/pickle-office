@@ -200,8 +200,8 @@
     dbOffs = [];
     subscribed = false;
     cache.clear();
-    snapshots.clear();
     PATHS.forEach((path) => emit(path, {}));
+    snapshots.clear();   // 로그아웃 시 비운 값은 "스냅샷"으로 세지 않습니다
   }
 
   async function initFirebase(cfg) {
