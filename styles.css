@@ -899,6 +899,12 @@ a { color: var(--purple); }
   box-shadow: 0 0 0 3px #f0eaff;
 }
 .auth-form input::placeholder { color: #b7b1c9; font-weight: 500; }
+.auth-form input.code {
+  letter-spacing: 0.10em;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-variant-ligatures: none;
+}
 
 .auth-error {
   margin: 0;
@@ -915,7 +921,8 @@ a { color: var(--purple); }
 .auth-code { margin: -6px 0 0; font-size: 11px; color: var(--ink-mute); word-break: break-all; }
 .auth-foot { margin: 0; font-size: 11.5px; color: var(--ink-mute); text-align: center; line-height: 1.5; }
 
-.account-email {
+.account-email,
+.account-tag {
   font-size: 12px;
   font-weight: 700;
   color: var(--ink-soft);
@@ -924,4 +931,5 @@ a { color: var(--purple); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.account-email[hidden] { display: none; }
+.account-email[hidden],
+.account-tag[hidden] { display: none; }

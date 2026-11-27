@@ -29,17 +29,15 @@ window.OFFICE_SETTINGS = {
   /* 이 시간(ms) 안에 heartbeat 가 있으면 "접속 중"으로 표시 */
   onlineWindowMs: 3 * 60 * 1000,
 
-  /* 인증 계정 → 피클 프로필 프리셋 (선택)
-     여기에 적어 둔 계정은 처음 로그인할 때 프로필이 자동으로 만들어집니다.
-     키는 이메일(소문자). 목록에 없으면 첫 로그인 때 이름·색깔을 직접 입력합니다.
-     예)
-     profiles: {
-       "jjinguri@example.com": { name: "찐구리", initial: "ㅈ", color: "pink", role: "합동 비서실 실장", desk: 1, status: "오피스 접속 중" },
-       "ssinguri@example.com": { name: "씬구리", initial: "ㅅ", color: "orange", desk: 2, status: "오피스 접속 중" }
-     }
-  */
-  profiles: {
-    "jjinguri@pickle.office": { name: "찐구리", initial: "ㅈ", color: "pink", role: "합동 비서실 실장", desk: 1, status: "오피스 접속 중" },
-    "ssinguri@pickle.office": { name: "씬구리", initial: "ㅅ", color: "orange", role: "", desk: 2, status: "오피스 접속 중" }
+  /* 새 입장코드가 처음 들어올 때 프로필 입력 창의 기본값 (선택) */
+  newAgent: {
+    color: "pink",
+    location: "workspace",
+    status: "오피스 접속 중"
   }
+
+  /* ⚠️ 입장코드는 여기에 적지 마세요.
+     이 파일은 공개 저장소(GitHub Pages)에 그대로 올라갑니다.
+     코드는 Firebase 콘솔의 Realtime Database → /office_codes/{코드} 에만 둡니다.
+     (규칙에서 .read/.write 를 모두 false 로 막아 아무도 읽을 수 없습니다.) */
 };

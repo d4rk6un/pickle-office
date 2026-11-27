@@ -1,8 +1,23 @@
 {
   "rules": {
+    "office_codes": {
+      ".read": false,
+      ".write": false
+    },
+
+    "office_sessions": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid && ((!newData.exists() && !newData.child('code').exists()) || (newData.child('code').isString() && newData.child('code').val().length > 0 && newData.child('code').val().length <= 64 && root.child('office_codes').child(newData.child('code').val()).exists()))",
+        "code": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 64" },
+        "ts": { ".validate": "newData.val() == null || newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+
     "office": {
-      ".read": "auth != null",
-      ".write": "auth != null",
+      ".read": "auth != null && root.child('office_sessions').child(auth.uid).child('code').isString() && root.child('office_codes').child(root.child('office_sessions').child(auth.uid).child('code').val()).exists()",
+      ".write": "auth != null && root.child('office_sessions').child(auth.uid).child('code').isString() && root.child('office_codes').child(root.child('office_sessions').child(auth.uid).child('code').val()).exists()",
 
       "agents": {
         "$agentId": {

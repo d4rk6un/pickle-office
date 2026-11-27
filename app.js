@@ -35,7 +35,7 @@
   ];
 
   const CLIENT_KEY = "pickle-office-client";
-  const PRESETS = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.profiles) || {};
+  const NEW_AGENT = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.newAgent) || {};
   const DESKS = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.desks) || 6;
   const ONLINE_MS = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.onlineWindowMs) || 180000;
 
@@ -46,7 +46,7 @@
     tab: "map",
     modalSubmit: null,
     setupOpen: false,
-    pendingProfile: null,
+    pendingProfile: false,
     chatDirty: true
   };
 
@@ -128,7 +128,7 @@
 
   function values(obj) { return Object.keys(obj || {}).map((k) => Object.assign({ id: k }, obj[k] || {})); }
 
-  /* ---------------- 내 정체성 : 인증 계정(uid) = 내 피클 ---------------- */
+  /* ---------------- 내 정체성 : 입장코드 해시(agentId) = 내 피클 ---------------- */
 
   const CLIENT = (function () {
     let id = null;
@@ -141,27 +141,22 @@
   })();
 
   function currentUser() { return Store.user ? Store.user() : null; }
+  function myAgentId() { return Store.agentId ? Store.agentId() : null; }
 
   function myAgent() {
-    const user = currentUser();
-    if (!user || !user.uid) return null;
-    const record = state.agents[user.uid];
+    const id = myAgentId();
+    if (!id) return null;
+    const record = state.agents[id];
     if (!record) return null;
-    return Object.assign({ id: user.uid }, record);
+    return Object.assign({ id: id }, record);
   }
 
   function requireMe() {
     if (myAgent()) return true;
-    const user = currentUser();
-    if (!user) { showGate(); toast("로그인이 필요해요"); return false; }
+    if (!myAgentId()) { showGate(); toast("입장코드로 입장해 주세요"); return false; }
     toast("내 피클 프로필을 먼저 만들어 주세요");
-    openSetupModal(user);
+    openSetupModal();
     return false;
-  }
-
-  function presetFor(email) {
-    if (!email) return null;
-    return PRESETS[String(email).toLowerCase()] || null;
   }
 
   async function touchPresence() {
@@ -171,28 +166,15 @@
     catch (e) { /* ignore */ }
   }
 
-  /* 첫 로그인: 프리셋이 있으면 그 값으로 만들고, 없으면 프로필 입력 창을 엽니다 */
-  async function ensureProfile(user) {
-    if (!user || !user.uid) return;
-    if (state.agents[user.uid]) { await touchPresence(); return; }
+  /* 내 피클 확인: 이 입장코드로 이미 만든 프로필이 있으면 그대로 쓰고,
+     처음이면 프로필 입력 창을 엽니다. (같은 코드 = 어느 기기에서든 같은 자리) */
+  async function ensureProfile() {
+    const id = myAgentId();
+    if (!id) return;
+    if (state.agents[id]) { await touchPresence(); return; }
     // 첫 스냅샷 전에 쓰면 기존 프로필을 덮어쓸 수 있으므로 스냅샷이 온 뒤에만 진행합니다
     if (!(Store.has && Store.has("agents"))) return;
-    const preset = presetFor(user.email);
-    if (!preset) { openSetupModal(user); return; }
-    const name = preset.name || (user.email || "").split("@")[0] || "피클";
-    await Store.set("agents", user.uid, {
-      name,
-      initial: preset.initial || initialOf(name),
-      color: preset.color || "purple",
-      role: preset.role || "",
-      location: preset.location || "workspace",
-      desk: typeof preset.desk === "number" ? preset.desk : null,
-      status: preset.status || "오피스 접속 중",
-      email: user.email || "",
-      updatedAt: Date.now(),
-      client: CLIENT
-    });
-    toast(name + " 피클로 입장했어요");
+    openSetupModal(id);
   }
 
   /* ---------------- 모달 ---------------- */
@@ -261,15 +243,15 @@
     return { el: el, picked: () => picked };
   }
 
-  /* 처음 로그인한 계정: 자기 피클 프로필을 만들어 /office/agents/{uid} 에 저장 */
-  function openSetupModal(user) {
-    if (!user || !user.uid) return;
+  /* 처음 입장한 코드: 자기 피클 프로필을 만들어 /office/agents/{agentId} 에 저장 */
+  function openSetupModal(agentId) {
+    const id = agentId || myAgentId();
+    if (!id) return;
     if (state.setupOpen) return;
-    const email = user.email || "";
     const nameInput = h("input", { type: "text", maxlength: "20", placeholder: "예: 찐구리", autocomplete: "off" });
     const initialInput = h("input", { type: "text", maxlength: "2", placeholder: "자동", autocomplete: "off" });
     const roleInput = h("input", { type: "text", maxlength: "30", placeholder: "예: 여행 담당 (선택)" });
-    const swatches = swatchPicker("pink");
+    const swatches = swatchPicker(NEW_AGENT.color || "pink");
 
     state.setupOpen = true;
     openModal({
@@ -277,24 +259,24 @@
       okText: "시작하기",
       hideCancel: true,
       body: [
-        h("p", { class: "hint", text: (email ? email + " 계정으로 인증됐어요. " : "") + "오피스에 표시할 내 피클을 정해 주세요. 이 이름과 색깔이 오피스 맵에 나타나요." }),
+        h("p", { class: "hint", text: "입장코드가 확인됐어요. 이 코드로는 처음 들어왔으니, 오피스에 표시할 내 피클을 정해 주세요. 다음부터는 같은 자리로 바로 입장해요." }),
         field("이름", nameInput),
         field("이니셜 (선택)", initialInput, "비워 두면 이름 첫 글자를 써요"),
         field("역할 (선택)", roleInput),
-        field("색깔", swatches.el)
+        field("색깔", swatches.el),
+        h("div", { class: "small muted" }, "내 피클 ID: ", id)
       ],
       onSubmit: async () => {
         const name = nameInput.value.trim();
         if (!name) { toast("이름을 입력해 주세요"); nameInput.focus(); return false; }
-        await Store.set("agents", user.uid, {
+        await Store.set("agents", id, {
           name: name,
           initial: initialInput.value.trim() || initialOf(name),
           color: swatches.picked(),
           role: roleInput.value.trim(),
-          location: "workspace",
+          location: NEW_AGENT.location || "workspace",
           desk: null,
-          status: "오피스 접속 중",
-          email: email,
+          status: NEW_AGENT.status || "오피스 접속 중",
           updatedAt: Date.now(),
           client: CLIENT
         });
@@ -308,8 +290,7 @@
   function openProfileModal() {
     const me = myAgent();
     if (!me) {
-      const user = currentUser();
-      if (user) openSetupModal(user);
+      if (myAgentId()) openSetupModal();
       else showGate();
       return;
     }
@@ -330,7 +311,7 @@
         field("상태 메시지", statusInput, "오피스 맵에 함께 표시돼요"),
         field("색깔", swatches.el),
         h("div", { class: "small muted" }, "현재 위치: ", ROOMS[me.location] ? ROOMS[me.location].name : "부재중", me.desk ? " · " + me.desk + "번 자리" : ""),
-        me.email ? h("div", { class: "small muted" }, "로그인 계정: ", me.email) : null
+        h("div", { class: "small muted" }, "내 피클 ID: ", me.id)
       ],
       onSubmit: async () => {
         const name = nameInput.value.trim();
@@ -397,15 +378,15 @@
     const badge = $("#dbBadge");
     badge.classList.remove("live", "pending");
     const status = Store.status;
-    const signedIn = !!currentUser();
+    const signedIn = !!myAgentId();
     if (Store.mode !== "firebase") {
-      badge.textContent = "Firebase 설정 필요";
+      badge.textContent = "로컬 데모 모드";
       badge.classList.add("pending");
     } else if (status === "error") {
       badge.textContent = "인증 서버에 연결하지 못했어요";
       badge.classList.add("pending");
     } else if (!signedIn) {
-      badge.textContent = "로그인 필요";
+      badge.textContent = "입장코드 필요";
       badge.classList.add("pending");
     } else if (status === "live") {
       badge.textContent = "실시간 동기화 중";
@@ -421,23 +402,22 @@
       badge.classList.add("pending");
     }
     let foot = "Firebase Realtime Database";
-    if (Store.mode !== "firebase") foot = "Firebase 설정 없음";
-    else if (!signedIn) foot = "로그인 전 · 데이터 잠김";
-    else if (status === "live") foot = "인증된 세션 · 실시간 동기화";
+    if (Store.mode !== "firebase") foot = "로컬 데모 모드 · Firebase 설정 없음";
+    else if (!signedIn) foot = "입장 전 · 데이터 잠김";
+    else if (status === "live") foot = "입장코드 세션 · 실시간 동기화";
     $("#footerMode").textContent = foot;
   }
 
   function renderMe() {
     const me = myAgent();
-    const user = currentUser();
     const avatar = $("#meAvatar");
     const name = $("#meName");
     if (me) {
       avatar.textContent = me.initial || initialOf(me.name);
       avatar.style.background = colorOf(me);
       name.textContent = me.name;
-    } else if (user) {
-      avatar.textContent = (user.email || "?").slice(0, 1).toUpperCase();
+    } else if (myAgentId()) {
+      avatar.textContent = "+";
       avatar.style.background = COLORS.purple;
       name.textContent = "프로필 설정";
     } else {
@@ -912,11 +892,8 @@
   // 내 프로필
   $("#meChip").addEventListener("click", () => {
     if (myAgent()) openProfileModal();
-    else {
-      const user = currentUser();
-      if (user) openSetupModal(user);
-      else showGate();
-    }
+    else if (myAgentId()) openSetupModal();
+    else showGate();
   });
 
   $("#joinMeeting").addEventListener("click", () => moveTo("meeting", null));
@@ -953,12 +930,8 @@
         renderMeeting();
         renderWorkspace();
         if (state.pendingProfile && Store.has && Store.has("agents")) {
-          const uid = state.pendingProfile;
-          state.pendingProfile = null;
-          const user = currentUser();
-          if (user && user.uid === uid) {
-            ensureProfile(user).catch((err) => console.error("[profile]", err));
-          }
+          state.pendingProfile = false;
+          ensureProfile().catch((err) => console.error("[profile]", err));
         }
       } else if (path === "chat") {
         renderMeeting();
@@ -991,16 +964,15 @@
   // 모달 취소 시 포커스 복구
   dialog.addEventListener("cancel", () => { state.modalSubmit = null; });
 
-  /* ---------------- 인증 게이트 (로그인 화면) ---------------- */
+  /* ---------------- 인증 게이트 (피클 입장코드) ---------------- */
 
   const gate = $("#authGate");
   const appRoot = $(".app");
   const authForm = $("#authForm");
-  const authEmail = $("#authEmail");
-  const authPassword = $("#authPassword");
+  const codeInput = $("#accessCode");
   const authSubmit = $("#authSubmit");
   const authError = $("#authError");
-  const authCode = $("#authCode");
+  const authCodeNote = $("#authCode");
 
   function setAuthError(message, code) {
     if (message) {
@@ -1011,80 +983,96 @@
       authError.hidden = true;
     }
     if (code) {
-      authCode.textContent = code;
-      authCode.hidden = false;
+      authCodeNote.textContent = code;
+      authCodeNote.hidden = false;
     } else {
-      authCode.textContent = "";
-      authCode.hidden = true;
+      authCodeNote.textContent = "";
+      authCodeNote.hidden = true;
     }
   }
 
   function setAuthBusy(busy) {
     authSubmit.disabled = !!busy;
-    authSubmit.textContent = busy ? "로그인 중…" : "로그인";
+    authSubmit.textContent = busy ? "확인하는 중…" : "입장";
   }
 
   function showGate(message, code) {
     appRoot.hidden = true;
     gate.hidden = false;
-    authSubmit.disabled = !(Store.mode === "firebase" && Store.ready);
+    authSubmit.disabled = !(Store.mode === "firebase" || Store.mode === "local") || !Store.ready;
     if (message) setAuthError(message, code);
-    setTimeout(() => {
-      try {
-        if (!authEmail.value) authEmail.focus();
-        else authPassword.focus();
-      } catch (e) { /* ignore */ }
-    }, 60);
+    setTimeout(() => { try { codeInput.focus(); } catch (e) { /* ignore */ } }, 60);
   }
 
-  function showApp() {
+  function resetState() {
+    state.agents = {}; state.chat = {}; state.tasks = {};
+    state.notes = {}; state.agenda = {}; state.decisions = {};
+    state.me = null;
+    state.setupOpen = false;
+    state.pendingProfile = false;
+    if (dialog.open) { try { dialog.close(); } catch (e) { /* ignore */ } }
+  }
+
+  function enterApp() {
+    if (!myAgentId()) { showGate(); return; }
     gate.hidden = true;
     appRoot.hidden = false;
     setAuthError("");
     setAuthBusy(false);
+    codeInput.value = "";
+    state.me = { id: myAgentId() };
+    renderAll();
+    if (Store.has && Store.has("agents")) {
+      state.pendingProfile = false;
+      ensureProfile().catch((err) => {
+        console.error("[profile] 내 피클을 준비하지 못했어요", err);
+        toast("내 피클을 불러오지 못했어요 (권한 또는 네트워크 확인)");
+      });
+    } else {
+      state.pendingProfile = true;
+    }
   }
 
-  function authErrorMessage(err) {
+  function accessCodeMessage(err) {
     const code = (err && err.code) || "";
     switch (code) {
-      case "auth/invalid-email": return "이메일 형식이 올바르지 않아요.";
-      case "auth/missing-password": return "비밀번호를 입력해 주세요.";
-      case "auth/invalid-credential":
-      case "auth/wrong-password":
-      case "auth/user-not-found": return "이메일 또는 비밀번호가 맞지 않아요.";
-      case "auth/user-disabled": return "사용이 중지된 계정이에요.";
+      case "office/invalid-code": return "유효하지 않은 입장코드예요. 실장에게 받은 코드를 확인해 주세요.";
+      case "office/empty-code": return "입장코드를 입력해 주세요.";
+      case "office/no-auth": return "인증을 시작하지 못했어요. 새로고침해서 다시 시도해 주세요.";
+      case "auth/operation-not-allowed":
+      case "auth/admin-restricted-operation": return "지금은 익명 로그인이 꺼져 있어 입장할 수 없어요. 실장에게 알려 주세요.";
       case "auth/too-many-requests": return "시도가 너무 많아요. 잠시 뒤 다시 시도해 주세요.";
-      case "auth/operation-not-allowed": return "이 프로젝트에서 이메일/비밀번호 로그인이 아직 켜져 있지 않아요.";
       case "auth/network-request-failed": return "네트워크에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.";
       case "auth/invalid-api-key":
       case "auth/api-key-not-valid": return "Firebase 설정(apiKey)을 확인해 주세요.";
-      default: return "로그인하지 못했어요. 계정 정보를 확인해 주세요.";
+      case "PERMISSION_DENIED": return "서버가 입장을 거부했어요. 잠시 뒤 다시 시도해 주세요.";
+      default: return "입장하지 못했어요. 입장코드를 확인하고 다시 시도해 주세요.";
     }
   }
 
   authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const email = authEmail.value.trim();
-    const password = authPassword.value;
-    if (!email || !password) {
-      setAuthError("이메일과 비밀번호를 모두 입력해 주세요.");
-      return;
-    }
+    const code = codeInput.value.trim();
+    if (!code) { setAuthError("입장코드를 입력해 주세요."); codeInput.focus(); return; }
     setAuthError("");
     setAuthBusy(true);
     try {
-      await Store.signIn(email, password);
-      authPassword.value = "";
+      await Store.signInWithAccessCode(code);
+      enterApp();
     } catch (err) {
-      console.error("[auth] 로그인 실패", err);
-      setAuthError(authErrorMessage(err), (err && err.code) || "");
+      console.error("[auth] 입장 실패", err);
+      setAuthError(accessCodeMessage(err), (err && err.code) || "");
       setAuthBusy(false);
+      try { codeInput.select(); } catch (e) { /* ignore */ }
     }
   });
 
   $("#logoutBtn").addEventListener("click", async () => {
     try {
       await Store.signOut();
+      resetState();
+      renderAll();
+      showGate("입장코드를 다시 입력해 주세요.");
       toast("로그아웃했어요");
     } catch (e) {
       toast("로그아웃하지 못했어요");
@@ -1093,44 +1081,30 @@
 
   /* ---------------- 시작 ---------------- */
 
-  async function onAuthChanged(user) {
+  function onAuthChanged(user) {
     state.authUser = user || null;
-    state.me = user && user.uid ? { id: user.uid } : null;
-
-    const emailEl = $("#accountEmail");
-    emailEl.textContent = user ? (user.email || user.uid) : "";
-    emailEl.hidden = !user;
-    $("#logoutBtn").hidden = !user;
+    const tag = $("#accountTag");
+    const id = myAgentId();
+    const showTag = !!(user && id);
+    tag.textContent = showTag ? id : "";
+    tag.hidden = !showTag;
+    $("#logoutBtn").hidden = !showTag;
 
     if (!user) {
-      state.agents = {}; state.chat = {}; state.tasks = {};
-      state.notes = {}; state.agenda = {}; state.decisions = {};
-      state.setupOpen = false;
-      state.pendingProfile = null;
-      if (dialog.open) { try { dialog.close(); } catch (e) { /* ignore */ } }
+      resetState();
       renderAll();
       showGate();
-      return;
-    }
-
-    showApp();
-    renderAll();
-
-    // 첫 스냅샷이 이미 있으면 바로, 아니면 agents 구독 콜백에서 이어서 처리합니다
-    if (Store.has && Store.has("agents")) {
-      state.pendingProfile = null;
-      try {
-        await ensureProfile(user);
-      } catch (err) {
-        console.error("[profile] 내 피클을 준비하지 못했어요", err);
-        toast("내 피클을 불러오지 못했어요 (권한 또는 네트워크 확인)");
-      }
-    } else {
-      state.pendingProfile = user.uid;
     }
   }
 
   Store.onAuth(onAuthChanged);
+
+  // 실시간 DB가 권한을 거부하면(=입장코드 폐기/규칙 문제) 입장 화면으로 잠급니다
+  Store.onStatus((next) => {
+    if (next === "denied" && myAgentId()) {
+      showGate("입장코드가 더 이상 유효하지 않거나 권한이 없어요. 코드를 다시 확인해 주세요.");
+    }
+  });
 
   async function boot() {
     const hash = (location.hash || "").replace("#", "");
@@ -1142,8 +1116,8 @@
 
     const result = await Store.init();
 
-    if (result.mode !== "firebase") {
-      showGate("Firebase 설정(config.js)이 없어 로그인할 수 없어요.", "config-missing");
+    if (result.mode === "local") {
+      showGate("로컬 데모 모드예요(Firebase 설정 없음). 아무 코드나 넣어 화면을 확인할 수 있어요.");
       return;
     }
     if (result.error) {
@@ -1152,14 +1126,11 @@
       return;
     }
     if (!Store.ready) {
-      showGate("로그인 상태를 확인하지 못했어요. 새로고침해서 다시 시도해 주세요.");
+      showGate("입장 상태를 확인하지 못했어요. 새로고침해서 다시 시도해 주세요.");
       return;
     }
-
-    // 인증 상태 콜백이 이미 처리했지만, 혹시 놓친 경우를 한 번 더 반영합니다
-    if (!Store.user()) showGate();
-    else if (appRoot.hidden) showApp();
-    setTab(state.tab);
+    if (myAgentId()) enterApp();
+    else showGate();
   }
 
   boot().catch((err) => {
