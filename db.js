@@ -32,6 +32,8 @@
   let dbOffs = [];              // Realtime Database 구독 해지 함수
   let subscribed = false;
   let initError = null;
+  let connected = false;          // .info/connected 최근 값
+  const snapshots = new Set();   // 첫 스냅샷이 도착한 경로
 
   /* ---------------- 공통 유틸 ---------------- */
 
@@ -65,6 +67,7 @@
 
   function emit(path, value) {
     cache.set(path, value || {});
+    snapshots.add(path);
     const set = subs.get(path);
     if (!set) return;
     set.forEach((cb) => {
@@ -197,6 +200,7 @@
     dbOffs = [];
     subscribed = false;
     cache.clear();
+    snapshots.clear();
     PATHS.forEach((path) => emit(path, {}));
   }
 
@@ -230,8 +234,9 @@
     try {
       const infoRef = dbMod.ref(database, ".info/connected");
       dbMod.onValue(infoRef, (snap) => {
+        connected = snap.val() === true;
         if (!authUser) return;
-        setStatus(snap.val() === true ? "live" : "offline");
+        setStatus(connected ? "live" : "offline");
       });
     } catch (e) { /* ignore */ }
 
@@ -243,7 +248,7 @@
 
       if (authUser) {
         startSubscriptions();
-        if (prevUid !== authUser.uid) setStatus("connecting");
+        if (prevUid !== authUser.uid) setStatus(connected ? "live" : "connecting");
       } else {
         stopSubscriptions();
       }
@@ -362,6 +367,7 @@
     onAuth: onAuth,
     user: currentUser,
     whenAuthReady: whenAuthReady,
+    has: function (path) { return snapshots.has(path); },
     get mode() { return mode; },
     get status() { return status; },
     get ready() { return authResolved; },

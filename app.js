@@ -129,6 +129,7 @@
 
   /* 서버에 이미 내 프로필이 있는지 첫 스냅샷을 잠깐 기다립니다 */
   function waitForAgents(timeoutMs) {
+    if (Store.has && Store.has("agents")) return Promise.resolve();
     return new Promise((resolve) => {
       let settled = false;
       const done = () => {
@@ -189,6 +190,11 @@
   async function ensureProfile(user) {
     if (!user || !user.uid) return;
     if (state.agents[user.uid]) { await touchPresence(); return; }
+    // 첫 스냅샷 전에 쓰면 기존 프로필을 덮어쓸 수 있으므로 기다립니다
+    if (!(Store.has && Store.has("agents"))) {
+      toast("오피스 데이터를 아직 불러오지 못했어요. 연결을 확인해 주세요");
+      return;
+    }
     const preset = presetFor(user.email);
     if (!preset) { openSetupModal(user); return; }
     const name = preset.name || (user.email || "").split("@")[0] || "피클";
@@ -1121,7 +1127,7 @@
 
     showApp();
     renderAll();
-    await waitForAgents(5000);
+    await waitForAgents(8000);
     if (token !== authFlowToken) return;
     try {
       await ensureProfile(user);
