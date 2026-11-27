@@ -328,6 +328,7 @@ a { color: var(--purple); }
   border-style: dashed;
   border-color: #e4dff2;
 }
+.room-away .room-body { min-height: 52px; }
 
 .room-head {
   display: flex;

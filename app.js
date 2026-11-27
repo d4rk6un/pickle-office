@@ -59,7 +59,12 @@
         if (key === "class") node.className = value;
         else if (key === "text") node.textContent = value;
         else if (key === "dataset") Object.assign(node.dataset, value);
-        else if (key === "style" && typeof value === "object") Object.assign(node.style, value);
+        else if (key === "style" && typeof value === "object") {
+          Object.keys(value).forEach((prop) => {
+            if (prop.slice(0, 2) === "--") node.style.setProperty(prop, value[prop]);
+            else node.style[prop] = value[prop];
+          });
+        }
         else if (key.slice(0, 2) === "on" && typeof value === "function") {
           node.addEventListener(key.slice(2).toLowerCase(), value);
         } else if (value === true) node.setAttribute(key, "");
@@ -120,6 +125,21 @@
   function byTime(a, b) { return (a.ts || a.createdAt || 0) - (b.ts || b.createdAt || 0); }
 
   function values(obj) { return Object.keys(obj || {}).map((k) => Object.assign({ id: k }, obj[k] || {})); }
+
+  /* 첫 데이터가 도착할 때까지 짧게 기다립니다 (입장 창의 '이미 있는 피클' 목록용) */
+  function waitForAgents(timeoutMs) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        try { off(); } catch (e) { /* ignore */ }
+        resolve();
+      };
+      const off = Store.on("agents", () => { if (!settled) setTimeout(done, 80); });
+      setTimeout(done, timeoutMs || 4000);
+    });
+  }
 
   /* ---------------- 내 정체성 ---------------- */
 
@@ -331,7 +351,9 @@
       toast(agent.name + " 피클로 입장했어요");
     }
     saveMe(agent.id);
-    await Store.update("agents", agent.id, { updatedAt: Date.now(), client: CLIENT });
+    const patch = { updatedAt: Date.now(), client: CLIENT };
+    if (!agent.status || agent.status === "접속 대기") patch.status = "오피스 접속 중";
+    await Store.update("agents", agent.id, patch);
     closeModal();
   }
 
@@ -1082,7 +1104,8 @@
     if (me) {
       await Store.update("agents", me.id, { updatedAt: Date.now(), client: CLIENT });
     } else if (!window.localStorage.getItem(ME_KEY)) {
-      setTimeout(() => { if (!myAgent()) openJoinModal(); }, 700);
+      await waitForAgents(4000);
+      if (!myAgent()) openJoinModal();
     }
 
     if (result.mode === "firebase") toast("실시간 DB에 연결됐어요");
