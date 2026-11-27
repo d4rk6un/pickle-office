@@ -103,6 +103,17 @@
     return "hallway";
   }
 
+  /* 저장된 좌표가 가구·벽 안이면 안전한 자리로 옮깁니다 */
+  function safePos(x, y, data) {
+    if (!hits(x, y)) return { x: x, y: y };
+    const zone = data && Art.ROOMS[data.location] ? data.location : "workspace";
+    const spawn = Art.spawnFor(zone);
+    if (!hits(spawn.x, spawn.y)) return spawn;
+    const seat = Art.seatFor(data || {});
+    if (!hits(seat.x, seat.y)) return seat;
+    return Art.spawnFor("workspace");
+  }
+
   function displayZone(zone) {
     return zone === "hallway" ? "복도" : (Art.ROOMS[zone] ? Art.ROOMS[zone].name : "복도");
   }
@@ -344,6 +355,9 @@
         x = seat.x;
         y = seat.y;
       }
+      const fixed = safePos(x, y, data);
+      x = fixed.x;
+      y = fixed.y;
       const prev = agents.get(id);
       if (prev) {
         prev.data = data;
@@ -383,8 +397,9 @@
     }
     const mine = agents.get(meId);
     if (mine) {
-      me.x = mine.tx;
-      me.y = mine.ty;
+      const fixed = safePos(mine.tx, mine.ty, mine.data);
+      me.x = fixed.x;
+      me.y = fixed.y;
       me.zone = zoneAt(me.x, me.y);
       meReady = true;
     } else {
