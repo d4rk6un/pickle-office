@@ -564,7 +564,7 @@
     if (!agentId || !text) return;
     const now = performance.now();
     const body = String(text).slice(0, 160);
-    const dur = kind === "emoji" ? 3400 : Math.min(12000, 3000 + body.length * 60);
+    const dur = kind === "emoji" ? 4200 : Math.min(12000, 3000 + body.length * 60);
     for (let i = bubbles.length - 1; i >= 0; i--) {
       if (bubbles[i].agentId === agentId) bubbles.splice(i, 1);
     }
@@ -678,7 +678,7 @@
     const alpha = remain < 350 ? remain / 350 : 1;
     const emoji = b.kind === "emoji";
     const x = agent.x;
-    const baseY = agent.y - 72 - rise * 4 - Math.sin(now / 340) * 1.5;
+    const baseY = agent.y - 82 - rise * 4 - Math.sin(now / 340) * 1.5;
 
     g.save();
     g.globalAlpha = alpha;

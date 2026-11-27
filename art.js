@@ -989,6 +989,57 @@
     g.restore();
   }
 
+  function paintCorridor(g) {
+    // 바닥 화살표
+    const arrow = function (ax, ay, dir) {
+      g.save();
+      g.globalAlpha = 0.28;
+      g.fillStyle = "#fff3c4";
+      for (let i = 0; i < 2; i++) {
+        const ox = ax + i * 14 * dir;
+        g.beginPath();
+        if (dir > 0) {
+          g.moveTo(ox, ay - 7); g.lineTo(ox + 9, ay); g.lineTo(ox, ay + 7);
+        } else {
+          g.moveTo(ox + 9, ay - 7); g.lineTo(ox, ay); g.lineTo(ox + 9, ay + 7);
+        }
+        g.closePath();
+        g.fill();
+      }
+      g.restore();
+    };
+    arrow(430, 372, 1);
+    arrow(830, 372, 1);
+
+    // 중앙 안내 매트
+    g.save();
+    g.globalAlpha = 0.35;
+    roundRect(g, 616, 356, 44, 32, 5, "#c9a06a");
+    g.globalAlpha = 0.5;
+    g.fillStyle = "#4a3358";
+    g.font = "7px 'Galmuri11','Malgun Gothic',sans-serif";
+    g.textAlign = "center";
+    g.fillText("PICKLE", 638, 372);
+    g.fillText("OFFICE", 638, 380);
+    g.textAlign = "left";
+    g.restore();
+
+    // 벽시계
+    const cx = 640, cy = 14;
+    g.fillStyle = "#f4ecd8";
+    g.beginPath(); g.arc(cx, cy, 9, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "#5a476f";
+    g.lineWidth = 2;
+    g.stroke();
+    g.strokeStyle = "#3a2b52";
+    g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx, cy - 5); g.stroke();
+    g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + 4, cy + 1); g.stroke();
+
+    // 복도 화분
+    drawPlant(g, 596, 382, 0.55);
+  }
+
   function paintDoors(g) {
     const mats = [
       { x: 282, y: 316, w: 66, h: 20 },
@@ -1072,6 +1123,7 @@
     paintLounge(g);
     paintAway(g);
     paintDoors(g);
+    paintCorridor(g);
     paintLight(g);
   }
 
@@ -1268,18 +1320,6 @@
       g.fillStyle = "#c9b7ea";
       g.fillText(role.slice(0, 12), x, tagY - 4);
       g.textAlign = "left";
-    }
-
-    // 내 캐릭터 화살표
-    if (isMe) {
-      const ay = tagY - (role ? 24 : 12) - 8 + Math.sin(t * 4) * 2;
-      g.fillStyle = "#ffd166";
-      g.beginPath();
-      g.moveTo(x - 5, ay);
-      g.lineTo(x + 5, ay);
-      g.lineTo(x, ay + 6);
-      g.closePath();
-      g.fill();
     }
 
     g.restore();
