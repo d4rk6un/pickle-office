@@ -170,8 +170,10 @@
   }
 
   function myAgent() {
-    if (!state.me) return null;
-    return state.agents[state.me.id] || null;
+    if (!state.me || !state.me.id) return null;
+    const record = state.agents[state.me.id];
+    if (!record) return null;
+    return Object.assign({ id: state.me.id }, record);
   }
 
   function requireMe() {
@@ -995,8 +997,9 @@
   $(".floor").addEventListener("click", (event) => {
     const agentEl = event.target.closest(".agent");
     if (agentEl) {
-      const agent = state.agents[agentEl.dataset.agent];
-      if (agent) openAgentCard(agent);
+      const key = agentEl.dataset.agent;
+      const agent = state.agents[key];
+      if (agent) openAgentCard(Object.assign({ id: key }, agent));
       return;
     }
     const deskEl = event.target.closest(".desk");
