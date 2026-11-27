@@ -477,22 +477,26 @@
   }
 
   function drawCooler(g, x, y) {
-    // 생수통
-    g.fillStyle = "rgba(150,210,240,0.6)";
+    // 생수통 (둥근 사각병)
+    g.fillStyle = "rgba(150,210,240,0.55)";
     g.beginPath();
-    g.ellipse(x + 19, y + 14, 15, 18, 0, 0, Math.PI * 2);
+    g.moveTo(x + 5, y + 30);
+    g.lineTo(x + 5, y + 12);
+    g.quadraticCurveTo(x + 5, y + 2, x + 15, y + 2);
+    g.lineTo(x + 23, y + 2);
+    g.quadraticCurveTo(x + 33, y + 2, x + 33, y + 12);
+    g.lineTo(x + 33, y + 30);
+    g.closePath();
     g.fill();
-    g.fillStyle = "rgba(220,245,255,0.5)";
-    g.beginPath();
-    g.ellipse(x + 15, y + 9, 6, 9, -0.3, 0, Math.PI * 2);
-    g.fill();
+    px(g, x + 9, y + 8, 5, 18, "rgba(235,250,255,0.45)");
+    px(g, x + 14, y - 1, 10, 4, "#9ec6dd");
     // 본체
-    px(g, x, y + 26, 38, 44, "#cfd6e8");
-    px(g, x, y + 26, 38, 4, "#eef2fb");
-    px(g, x + 6, y + 38, 26, 8, "#8ea4c6");
-    px(g, x + 8, y + 52, 8, 6, "#6fa8ff");
-    px(g, x + 20, y + 52, 8, 6, "#ff87bd");
-    px(g, x + 4, y + 62, 30, 4, "#a5acc4");
+    px(g, x, y + 30, 38, 40, "#cfd6e8");
+    px(g, x, y + 30, 38, 4, "#eef2fb");
+    px(g, x + 6, y + 40, 26, 8, "#8ea4c6");
+    px(g, x + 8, y + 54, 8, 6, "#6fa8ff");
+    px(g, x + 20, y + 54, 8, 6, "#ff87bd");
+    px(g, x + 4, y + 64, 30, 4, "#a5acc4");
   }
 
   function drawCabinet(g, x, y, w, h) {
@@ -651,25 +655,29 @@
   }
 
   function drawSofa(g, x, y, w, h) {
-    px(g, x + 3, y + h - 2, w, 7, "rgba(30,20,40,0.2)");
-    px(g, x, y + 8, w, h - 8, "#c96f8a");
-    px(g, x, y, w, 14, "#e08ba4");
-    px(g, x, y + 14, 10, h - 14, "#b45c76");
-    px(g, x + w - 10, y + 14, 10, h - 14, "#b45c76");
+    px(g, x + 3, y + h - 2, w, 7, "rgba(30,20,40,0.22)");
+    px(g, x, y + 8, w, h - 8, "#b95f7c");
+    px(g, x, y, w, 14, "#d87a96");
+    px(g, x, y, w, 3, "#ee9db3");
+    px(g, x, y + 14, 10, h - 14, "#9c4a63");
+    px(g, x + w - 10, y + 14, 10, h - 14, "#9c4a63");
     // 쿠션
-    px(g, x + 14, y + 18, (w - 34) / 2, h - 28, "#f0a9bc");
-    px(g, x + 14 + (w - 34) / 2 + 6, y + 18, (w - 34) / 2, h - 28, "#f0a9bc");
-    px(g, x + 18, y + 22, (w - 34) / 2 - 8, 3, "rgba(255,255,255,0.35)");
-    px(g, x + 22 + (w - 34) / 2 + 6, y + 22, (w - 34) / 2 - 8, 3, "rgba(255,255,255,0.35)");
+    const cw = (w - 34) / 2;
+    px(g, x + 14, y + 18, cw, h - 28, "#eb9bb0");
+    px(g, x + 20 + cw, y + 18, cw, h - 28, "#eb9bb0");
+    px(g, x + 18, y + 22, cw - 8, 3, "rgba(255,255,255,0.4)");
+    px(g, x + 24 + cw, y + 22, cw - 8, 3, "rgba(255,255,255,0.4)");
+    px(g, x + 14, y + h - 12, cw, 2, "#b4687f");
   }
 
   function drawArmchair(g, x, y) {
-    px(g, x + 3, y + 60, 70, 7, "rgba(30,20,40,0.2)");
-    px(g, x, y + 8, 70, 58, "#c96f8a");
-    px(g, x, y, 70, 12, "#e08ba4");
-    px(g, x + 10, y + 18, 50, 38, "#f0a9bc");
-    px(g, x + 6, y + 12, 6, 50, "#b45c76");
-    px(g, x + 58, y + 12, 6, 50, "#b45c76");
+    px(g, x + 3, y + 60, 70, 7, "rgba(30,20,40,0.22)");
+    px(g, x, y + 8, 70, 58, "#b95f7c");
+    px(g, x, y, 70, 12, "#d87a96");
+    px(g, x, y, 70, 3, "#ee9db3");
+    px(g, x + 10, y + 18, 50, 38, "#eb9bb0");
+    px(g, x + 6, y + 12, 6, 50, "#9c4a63");
+    px(g, x + 58, y + 12, 6, 50, "#9c4a63");
   }
 
   function drawCoffeeTable(g, x, y, w, h) {

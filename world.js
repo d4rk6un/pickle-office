@@ -768,8 +768,7 @@
     computeCamera();
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "#0f0a18";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const s = view.scale * dpr;
     ctx.setTransform(s, 0, 0, s, -view.camX * s, -view.camY * s);
