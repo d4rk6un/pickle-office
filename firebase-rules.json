@@ -1,0 +1,36 @@
+{
+  "rules": {
+    "office": {
+      ".read": true,
+      ".write": true,
+
+      "agents": {
+        "$agentId": {
+          "name":    { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "initial": { ".validate": "newData.isString() && newData.val().length <= 4" },
+          "status":  { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "location":{ ".validate": "newData.isString() && newData.val().matches(/^(meeting|workspace|lounge|away)$/)" },
+          "desk":    { ".validate": "newData.val() == null || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 12)" }
+        }
+      },
+
+      "chat": {
+        "$msgId": {
+          "text": { ".validate": "newData.isString() && newData.val().length <= 1000" },
+          "name": { ".validate": "newData.isString() && newData.val().length <= 40" }
+        }
+      },
+
+      "tasks": {
+        "$taskId": {
+          "title":  { ".validate": "newData.isString() && newData.val().length <= 200" },
+          "status": { ".validate": "newData.val() == null || newData.val().matches(/^(todo|doing|done)$/)" }
+        }
+      },
+
+      "notes":     { "$noteId":     { "title": { ".validate": "newData.isString() && newData.val().length <= 200" } } },
+      "agenda":    { "$agendaId":   { "text":  { ".validate": "newData.isString() && newData.val().length <= 300" } } },
+      "decisions": { "$decisionId": { "text":  { ".validate": "newData.isString() && newData.val().length <= 400" } } }
+    }
+  }
+}

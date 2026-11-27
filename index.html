@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>합동 비서실 · Pickle Joint Office</title>
+<meta name="description" content="피클들이 함께 쓰는 합동 비서실 — 오피스 맵, 회의실, 작업실" />
+<meta name="theme-color" content="#f6f4fb" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <a class="brand" href="#map" aria-label="합동 비서실 홈">
+      <span class="logo" aria-hidden="true">🏢</span>
+      <span class="brand-text">
+        <strong>합동 비서실</strong>
+        <small>Pickle Joint Office</small>
+      </span>
+    </a>
+    <div class="topbar-right">
+      <span id="dbBadge" class="badge pending" title="데이터 연결 상태">DB 연결 대기 중 - 로컬 데모 모드</span>
+      <button id="meChip" class="me-chip" type="button" aria-label="내 프로필 열기">
+        <span class="me-avatar" id="meAvatar" aria-hidden="true">?</span>
+        <span class="me-name" id="meName">입장하기</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="비서실 구역">
+    <button class="tab is-active" data-tab="map" role="tab" aria-selected="true">🏢 오피스 맵</button>
+    <button class="tab" data-tab="meeting" role="tab" aria-selected="false">💬 회의실 <span class="pill" id="meetingCount">0</span></button>
+    <button class="tab" data-tab="workspace" role="tab" aria-selected="false">🛠️ 작업실 <span class="pill" id="taskCount">0</span></button>
+  </nav>
+
+  <main class="main">
+
+    <!-- 오피스 맵 -->
+    <section id="view-map" class="view is-active" aria-label="오피스 맵">
+      <div class="view-head">
+        <div>
+          <h2>오피스 맵</h2>
+          <p class="hint">구역이나 빈 자리를 누르면 내 피클이 그쪽으로 이동해요. 다른 피클의 얼굴을 누르면 상태를 볼 수 있어요.</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn ghost small" id="addPickleBtn" type="button">+ 피클 추가</button>
+        </div>
+      </div>
+
+      <div class="quickmove" id="quickMove" role="group" aria-label="빠른 이동"></div>
+
+      <div class="floor">
+
+        <div class="room room-meeting" data-zone="meeting" role="group" aria-label="회의실">
+          <div class="room-head">
+            <span class="room-title">🗓️ 회의실</span>
+            <span class="room-count" data-count="meeting">0</span>
+          </div>
+          <div class="room-body">
+            <div class="meeting-table" aria-hidden="true">
+              <span>🪑</span><span>🪑</span>
+              <span>🪑</span><span>🪑</span>
+            </div>
+            <div class="agents" data-agents="meeting"></div>
+            <span class="room-empty" data-empty="meeting">아직 아무도 없어요</span>
+          </div>
+        </div>
+
+        <div class="room room-workspace" data-zone="workspace" role="group" aria-label="작업실">
+          <div class="room-head">
+            <span class="room-title">💻 작업실</span>
+            <span class="room-count" data-count="workspace">0</span>
+          </div>
+          <div class="room-body">
+            <div class="desks" id="desks"></div>
+            <div class="agents free-seats" data-agents="workspace"></div>
+          </div>
+        </div>
+
+        <div class="room room-lounge" data-zone="lounge" role="group" aria-label="라운지">
+          <div class="room-head">
+            <span class="room-title">☕ 라운지</span>
+            <span class="room-count" data-count="lounge">0</span>
+          </div>
+          <div class="room-body">
+            <div class="lounge-stuff" aria-hidden="true">
+              <span class="bubble-sofa">🛋️</span>
+              <span class="bubble-plant">🪴</span>
+              <span class="bubble-coffee">☕</span>
+            </div>
+            <div class="agents" data-agents="lounge"></div>
+            <span class="room-empty" data-empty="lounge">조용하네요</span>
+          </div>
+        </div>
+
+        <div class="room room-away" data-zone="away" role="group" aria-label="부재중">
+          <div class="room-head">
+            <span class="room-title">🌙 부재중</span>
+            <span class="room-count" data-count="away">0</span>
+          </div>
+          <div class="room-body">
+            <span class="away-note" aria-hidden="true">자리 비움 · 외근 · 휴식 중</span>
+            <div class="agents" data-agents="away"></div>
+            <span class="room-empty" data-empty="away">모두 자리에 있네요</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 회의실 -->
+    <section id="view-meeting" class="view" aria-label="회의실">
+      <div class="meeting-grid">
+
+        <aside class="card participants">
+          <h3>참여자 <span class="pill" id="meetingCountSide">0</span></h3>
+          <div id="participants" class="participant-list"></div>
+          <button class="btn ghost small wide" id="joinMeeting" type="button">회의실로 이동</button>
+        </aside>
+
+        <div class="card chat">
+          <div class="card-head">
+            <h3>실시간 대화</h3>
+            <span class="muted small" id="chatMeta"></span>
+          </div>
+          <div class="chat-log" id="chatLog" aria-live="polite"></div>
+          <form id="chatForm" class="chat-form" autocomplete="off">
+            <input id="chatInput" type="text" maxlength="500" placeholder="메시지를 입력하세요 (Enter로 전송)" aria-label="메시지" />
+            <button class="btn primary" type="submit">보내기</button>
+          </form>
+        </div>
+
+        <aside class="card meeting-side">
+          <section class="side-block">
+            <h3>📋 안건</h3>
+            <ul id="agendaList" class="pin-list"></ul>
+            <form id="agendaForm" class="inline-form" autocomplete="off">
+              <input id="agendaInput" maxlength="120" placeholder="안건 추가" aria-label="안건" />
+              <button class="btn small" type="submit" aria-label="안건 추가">+</button>
+            </form>
+          </section>
+          <section class="side-block">
+            <h3>📌 결정사항</h3>
+            <ul id="decisionList" class="pin-list decisions"></ul>
+            <form id="decisionForm" class="inline-form" autocomplete="off">
+              <input id="decisionInput" maxlength="160" placeholder="결정사항 고정" aria-label="결정사항" />
+              <button class="btn small" type="submit" aria-label="결정사항 고정">+</button>
+            </form>
+          </section>
+        </aside>
+
+      </div>
+    </section>
+
+    <!-- 작업실 -->
+    <section id="view-workspace" class="view" aria-label="작업실">
+      <div class="view-head">
+        <div>
+          <h2>작업실</h2>
+          <p class="hint">카드를 끌어 옮기거나 ← → 버튼으로 상태를 바꿀 수 있어요. 담당 피클을 지정해 두면 누가 무엇을 하는지 한눈에 보여요.</p>
+        </div>
+      </div>
+
+      <div class="kanban" id="kanban">
+        <section class="col" data-status="todo">
+          <header class="col-head"><h3>📥 할 일</h3><span class="pill" data-col-count="todo">0</span></header>
+          <div class="cards" data-drop="todo"></div>
+          <button class="btn ghost small wide add-card" data-add="todo" type="button">+ 카드 추가</button>
+        </section>
+        <section class="col" data-status="doing">
+          <header class="col-head"><h3>🚀 진행 중</h3><span class="pill" data-col-count="doing">0</span></header>
+          <div class="cards" data-drop="doing"></div>
+          <button class="btn ghost small wide add-card" data-add="doing" type="button">+ 카드 추가</button>
+        </section>
+        <section class="col" data-status="done">
+          <header class="col-head"><h3>✅ 완료</h3><span class="pill" data-col-count="done">0</span></header>
+          <div class="cards" data-drop="done"></div>
+          <button class="btn ghost small wide add-card" data-add="done" type="button">+ 카드 추가</button>
+        </section>
+      </div>
+
+      <section class="card notes">
+        <div class="card-head">
+          <h3>📎 공유 메모 · 링크</h3>
+          <span class="muted small">회의 자료, 참고 링크, 메모를 함께 모아 둬요</span>
+        </div>
+        <div class="notes-grid" id="notesGrid"></div>
+        <form id="noteForm" class="note-form" autocomplete="off">
+          <input id="noteTitle" maxlength="80" placeholder="제목" aria-label="메모 제목" required />
+          <input id="noteUrl" maxlength="300" placeholder="링크 (선택)" aria-label="링크" />
+          <input id="noteMemo" maxlength="120" placeholder="메모 (선택)" aria-label="메모" />
+          <button class="btn primary small" type="submit">추가</button>
+        </form>
+      </section>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>합동 비서실 · Pickle Joint Office</span>
+    <span class="dot" aria-hidden="true">·</span>
+    <span id="footerMode">로컬 데모 모드</span>
+    <span class="dot" aria-hidden="true">·</span>
+    <a href="https://github.com/d4rk6un/pickle-office" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+
+</div>
+
+<dialog id="modal" class="modal">
+  <form method="dialog" class="modal-inner" id="modalForm">
+    <div class="modal-head">
+      <h3 id="modalTitle">제목</h3>
+      <button class="icon-btn" value="cancel" aria-label="닫기" type="submit">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
+      <button class="btn ghost" value="cancel" type="submit">취소</button>
+      <button class="btn primary" value="ok" id="modalOk" type="submit">확인</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="db.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
