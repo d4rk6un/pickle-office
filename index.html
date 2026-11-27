@@ -4,216 +4,207 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>합동 비서실 · Pickle Joint Office</title>
-<meta name="description" content="피클들이 함께 쓰는 합동 비서실 — 오피스 맵, 회의실, 작업실" />
-<meta name="theme-color" content="#f6f4fb" />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏢</text></svg>" />
-<link rel="stylesheet" href="styles.css?v=20261127e" />
+<meta name="description" content="피클들이 함께 쓰는 2D 메타버스 오피스 — 캐릭터로 걸어 다니고, 회의실에서 이야기하고, 작업실에서 퀘스트를 굴려요." />
+<meta name="theme-color" content="#120c1f" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>" />
+<link rel="stylesheet" href="styles.css?v=20261128a" />
 </head>
 <body>
 
-<!-- 인증 게이트: 입장코드를 확인하기 전에는 이 화면만 보입니다 -->
-<div id="authGate" class="auth-gate" role="main" aria-label="입장">
-  <div class="auth-card">
-    <div class="auth-brand">
-      <span class="logo" aria-hidden="true">🏢</span>
-      <span class="brand-text">
-        <strong>합동 비서실</strong>
-        <small>Pickle Joint Office</small>
-      </span>
-    </div>
-    <p class="auth-lead">피클 입장코드로 들어와요.<br /><span class="muted">실장에게 받은 코드를 입력하면 내 피클 자리로 입장해요.</span></p>
+<!-- ============ 게임 타이틀 · 입장 화면 ============ -->
+<div id="authGate" class="title-screen" role="main" aria-label="합동 비서실 입장">
+  <canvas id="titleCanvas" class="title-canvas" aria-hidden="true"></canvas>
+  <div class="title-shade" aria-hidden="true"></div>
 
-    <form id="authForm" class="auth-form" autocomplete="off">
-      <label class="field">
-        <span>피클 입장코드</span>
-        <input id="accessCode" class="code" type="text" inputmode="text"
+  <div class="title-inner">
+    <p class="title-kicker">◈ MULTIPLAYER · 2D OFFICE WORLD ◈</p>
+
+    <h1 class="title-logo">
+      <span class="logo-kr">합동 비서실</span>
+      <span class="logo-en">PICKLE JOINT OFFICE</span>
+    </h1>
+
+    <p class="title-tag">피클들이 모여 사는 픽셀 오피스.<br />입장코드 하나면 내 캐릭터로 바로 출근.</p>
+
+    <form id="authForm" class="title-form" autocomplete="off">
+      <label class="title-label" for="accessCode">🎟️ 피클 입장코드</label>
+      <div class="code-row">
+        <input id="accessCode" class="code-input" type="text" inputmode="text"
                autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
-               placeholder="예: PICKLE-7K3F-2M9Q" maxlength="64" required />
-      </label>
+               placeholder="PICKLE-XXXX-XXXX" maxlength="64" required />
+        <button id="authSubmit" class="btn-arcade" type="submit" disabled><span>ENTER OFFICE</span></button>
+      </div>
       <p id="authError" class="auth-error" role="alert" hidden></p>
       <p id="authCode" class="auth-code" hidden></p>
-      <button id="authSubmit" class="btn primary wide" type="submit" disabled>입장</button>
     </form>
 
-    <p class="auth-foot">입장코드는 실장이 발급합니다. 코드가 없으면 들어올 수 없어요.</p>
+    <ul class="title-keys" aria-label="조작법">
+      <li><b>WASD</b>·<b>방향키</b> 걷기</li>
+      <li><b>클릭</b>한 곳으로 이동</li>
+      <li><b>💬</b> 채팅 · <b>🎉</b> 이모티콘</li>
+      <li><b>구역</b>에 들어가면 패널 열림</li>
+    </ul>
+
+    <p class="title-foot">입장코드는 실장이 발급합니다. 코드가 없으면 들어올 수 없어요.</p>
   </div>
+
+  <div class="title-credit">PICKLE JOINT OFFICE · v2 METAVERSE EDITION</div>
 </div>
 
-<div class="app" hidden>
+<!-- ============ 메타버스 오피스 ============ -->
+<div id="appRoot" class="game" hidden>
 
-  <header class="topbar">
-    <a class="brand" href="#map" aria-label="합동 비서실 홈">
-      <span class="logo" aria-hidden="true">🏢</span>
-      <span class="brand-text">
-        <strong>합동 비서실</strong>
-        <small>Pickle Joint Office</small>
+  <canvas id="worldCanvas" class="world-canvas" aria-label="합동 비서실 2D 오피스 맵"></canvas>
+  <div class="world-vignette" aria-hidden="true"></div>
+  <div class="world-scan" aria-hidden="true"></div>
+
+  <!-- 상단 게임 HUD -->
+  <header class="hud-top">
+    <button id="meChip" class="hud-me" type="button" title="내 프로필 열기">
+      <span class="portrait" id="portraitWrap">
+        <span class="portrait-face" id="meAvatar">?</span>
+        <i class="led" id="meLed" aria-hidden="true"></i>
       </span>
-    </a>
-    <div class="topbar-right">
-      <span id="dbBadge" class="badge pending" title="데이터 연결 상태">연결 확인 중…</span>
-      <span id="accountTag" class="account-tag" title="내 피클 ID (입장코드 해시 앞 12자리)" hidden></span>
-      <button id="meChip" class="me-chip" type="button" aria-label="내 프로필 열기">
-        <span class="me-avatar" id="meAvatar" aria-hidden="true">?</span>
-        <span class="me-name" id="meName">내 피클</span>
-      </button>
-      <button id="logoutBtn" class="btn ghost small" type="button" hidden>로그아웃</button>
+      <span class="me-text">
+        <strong id="meName">내 피클</strong>
+        <small id="meRole">프로필 설정</small>
+      </span>
+    </button>
+
+    <div class="hud-stats">
+      <span class="stat zone-chip" id="zoneChip">📍 로비</span>
+      <span class="stat" id="onlineChip" title="지금 접속 중인 피클">🟢 0 / 0</span>
+      <span class="stat sync" id="dbBadge" title="실시간 동기화 상태">연결 확인 중…</span>
+    </div>
+
+    <div class="hud-actions">
+      <button id="crewBtn" class="icon-btn" type="button" title="접속 중인 동료 피클 (C)" aria-label="동료 피클 목록">👥</button>
+      <button id="soundBtn" class="icon-btn" type="button" title="사운드 켜기/끄기" aria-label="사운드" aria-pressed="false">🔈</button>
+      <button id="helpBtn" class="icon-btn" type="button" title="조작법" aria-label="조작법">❔</button>
+      <button id="logoutBtn" class="icon-btn danger" type="button" title="로그아웃" aria-label="로그아웃" hidden>⏻</button>
+      <span id="accountTag" class="account-tag" hidden></span>
     </div>
   </header>
 
-  <nav class="tabs" role="tablist" aria-label="비서실 구역">
-    <button class="tab is-active" data-tab="map" role="tab" aria-selected="true">🏢 오피스 맵</button>
-    <button class="tab" data-tab="meeting" role="tab" aria-selected="false">💬 회의실 <span class="pill" id="meetingCount">0</span></button>
-    <button class="tab" data-tab="workspace" role="tab" aria-selected="false">🛠️ 작업실 <span class="pill" id="taskCount">0</span></button>
+  <!-- 구역 빠른 이동 -->
+  <nav class="zone-nav" aria-label="구역 빠른 이동">
+    <button type="button" class="zone-btn" data-zone="workspace"><span>🛠️</span>작업실</button>
+    <button type="button" class="zone-btn" data-zone="meeting"><span>🗓️</span>회의실</button>
+    <button type="button" class="zone-btn" data-zone="lounge"><span>☕</span>라운지</button>
+    <button type="button" class="zone-btn" data-zone="away"><span>🌙</span>테라스</button>
   </nav>
 
-  <main class="main">
+  <!-- 퀘스트 미니 로그 -->
+  <button id="questMini" class="quest-mini" type="button" title="작업실 퀘스트 보드 열기">
+    <span class="q-head">📜 퀘스트</span>
+    <span class="q-row"><b id="qTodo">0</b> 대기</span>
+    <span class="q-row"><b id="qDoing">0</b> 진행</span>
+    <span class="q-row done"><b id="qDone">0</b> 완료</span>
+  </button>
 
-    <!-- 오피스 맵 -->
-    <section id="view-map" class="view is-active" aria-label="오피스 맵">
-      <div class="view-head">
-        <div>
-          <h2>오피스 맵</h2>
-          <p class="hint">구역이나 빈 자리를 누르면 내 피클이 그쪽으로 이동해요. 다른 피클의 얼굴을 누르면 상태를 볼 수 있어요.</p>
-        </div>
+  <!-- 모바일 방향 패드 -->
+  <div class="dpad" id="dpad" aria-label="이동 패드">
+    <button type="button" class="dpad-btn up" data-dir="up" aria-label="위로">▲</button>
+    <button type="button" class="dpad-btn left" data-dir="left" aria-label="왼쪽">◀</button>
+    <button type="button" class="dpad-btn down" data-dir="down" aria-label="아래로">▼</button>
+    <button type="button" class="dpad-btn right" data-dir="right" aria-label="오른쪽">▶</button>
+    <span class="dpad-dot" aria-hidden="true"></span>
+  </div>
+
+  <!-- 하단 액션 바 -->
+  <div class="action-bar">
+    <div class="emoji-bar" id="emojiBar" role="group" aria-label="감정 표현">
+      <button type="button" class="emoji-btn" data-emoji="🎉" aria-label="축하">🎉</button>
+      <button type="button" class="emoji-btn" data-emoji="☕" aria-label="커피">☕</button>
+      <button type="button" class="emoji-btn" data-emoji="💡" aria-label="아이디어">💡</button>
+      <button type="button" class="emoji-btn" data-emoji="🔥" aria-label="열정">🔥</button>
+      <button type="button" class="emoji-btn" data-emoji="👋" aria-label="인사">👋</button>
+      <button type="button" class="emoji-btn" data-emoji="❤️" aria-label="하트">❤️</button>
+    </div>
+    <form id="quickChat" class="quick-chat" autocomplete="off">
+      <input id="quickInput" type="text" maxlength="500" placeholder="한마디 남기기 (Enter)" aria-label="빠른 채팅" />
+      <button class="send-btn" type="submit" aria-label="보내기">💬</button>
+    </form>
+  </div>
+
+  <div class="zone-toast" id="zoneToast" hidden></div>
+
+  <!-- ============ 회의실 패널 ============ -->
+  <aside id="panelMeeting" class="panel" hidden aria-label="회의실">
+    <header class="panel-head">
+      <h2>🗓️ 회의실</h2>
+      <div class="panel-tools">
+        <button type="button" class="icon-btn" data-goto="meeting" title="회의실로 이동">➜</button>
+        <button type="button" class="icon-btn panel-close" data-close="#panelMeeting" aria-label="닫기">✕</button>
       </div>
+    </header>
+    <div class="panel-body">
+      <section class="block">
+        <h3>참여자 <span class="pill" id="meetingCount">0</span></h3>
+        <div id="participants" class="participant-list"></div>
+      </section>
 
-      <div class="quickmove" id="quickMove" role="group" aria-label="빠른 이동"></div>
+      <section class="block chat-block">
+        <h3>실시간 대화 <span class="muted small" id="chatMeta"></span></h3>
+        <div class="chat-log" id="chatLog" aria-live="polite"></div>
+        <form id="chatForm" class="chat-form" autocomplete="off">
+          <input id="chatInput" type="text" maxlength="500" placeholder="메시지를 입력하세요 (Enter로 전송)" aria-label="메시지" />
+          <button class="btn primary" type="submit">보내기</button>
+        </form>
+      </section>
 
-      <div class="floor">
-
-        <div class="room room-meeting" data-zone="meeting" role="group" aria-label="회의실">
-          <div class="room-head">
-            <span class="room-title">🗓️ 회의실</span>
-            <span class="room-count" data-count="meeting">0</span>
-          </div>
-          <div class="room-body">
-            <div class="meeting-table" aria-hidden="true">
-              <span>🪑</span><span>🪑</span>
-              <span>🪑</span><span>🪑</span>
-            </div>
-            <div class="agents" data-agents="meeting"></div>
-            <span class="room-empty" data-empty="meeting">아직 아무도 없어요</span>
-          </div>
-        </div>
-
-        <div class="room room-workspace" data-zone="workspace" role="group" aria-label="작업실">
-          <div class="room-head">
-            <span class="room-title">💻 작업실</span>
-            <span class="room-count" data-count="workspace">0</span>
-          </div>
-          <div class="room-body">
-            <div class="desks" id="desks"></div>
-            <div class="agents free-seats" data-agents="workspace"></div>
-          </div>
-        </div>
-
-        <div class="room room-lounge" data-zone="lounge" role="group" aria-label="라운지">
-          <div class="room-head">
-            <span class="room-title">☕ 라운지</span>
-            <span class="room-count" data-count="lounge">0</span>
-          </div>
-          <div class="room-body">
-            <div class="lounge-stuff" aria-hidden="true">
-              <span class="bubble-sofa">🛋️</span>
-              <span class="bubble-plant">🪴</span>
-              <span class="bubble-coffee">☕</span>
-            </div>
-            <div class="agents" data-agents="lounge"></div>
-            <span class="room-empty" data-empty="lounge">조용하네요</span>
-          </div>
-        </div>
-
-        <div class="room room-away" data-zone="away" role="group" aria-label="부재중">
-          <div class="room-head">
-            <span class="room-title">🌙 부재중</span>
-            <span class="room-count" data-count="away">0</span>
-          </div>
-          <div class="room-body">
-            <span class="away-note" aria-hidden="true">자리 비움 · 외근 · 휴식 중</span>
-            <div class="agents" data-agents="away"></div>
-            <span class="room-empty" data-empty="away">모두 자리에 있네요</span>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- 회의실 -->
-    <section id="view-meeting" class="view" aria-label="회의실">
-      <div class="meeting-grid">
-
-        <aside class="card participants">
-          <h3>참여자 <span class="pill" id="meetingCountSide">0</span></h3>
-          <div id="participants" class="participant-list"></div>
-          <button class="btn ghost small wide" id="joinMeeting" type="button">회의실로 이동</button>
-        </aside>
-
-        <div class="card chat">
-          <div class="card-head">
-            <h3>실시간 대화</h3>
-            <span class="muted small" id="chatMeta"></span>
-          </div>
-          <div class="chat-log" id="chatLog" aria-live="polite"></div>
-          <form id="chatForm" class="chat-form" autocomplete="off">
-            <input id="chatInput" type="text" maxlength="500" placeholder="메시지를 입력하세요 (Enter로 전송)" aria-label="메시지" />
-            <button class="btn primary" type="submit">보내기</button>
+      <div class="two-col">
+        <section class="block">
+          <h3>📋 안건</h3>
+          <ul id="agendaList" class="pin-list"></ul>
+          <form id="agendaForm" class="inline-form" autocomplete="off">
+            <input id="agendaInput" maxlength="120" placeholder="안건 추가" aria-label="안건" />
+            <button class="btn small" type="submit" aria-label="안건 추가">＋</button>
           </form>
-        </div>
-
-        <aside class="card meeting-side">
-          <section class="side-block">
-            <h3>📋 안건</h3>
-            <ul id="agendaList" class="pin-list"></ul>
-            <form id="agendaForm" class="inline-form" autocomplete="off">
-              <input id="agendaInput" maxlength="120" placeholder="안건 추가" aria-label="안건" />
-              <button class="btn small" type="submit" aria-label="안건 추가">+</button>
-            </form>
-          </section>
-          <section class="side-block">
-            <h3>📌 결정사항</h3>
-            <ul id="decisionList" class="pin-list decisions"></ul>
-            <form id="decisionForm" class="inline-form" autocomplete="off">
-              <input id="decisionInput" maxlength="160" placeholder="결정사항 고정" aria-label="결정사항" />
-              <button class="btn small" type="submit" aria-label="결정사항 고정">+</button>
-            </form>
-          </section>
-        </aside>
-
+        </section>
+        <section class="block">
+          <h3>📌 결정사항</h3>
+          <ul id="decisionList" class="pin-list decisions"></ul>
+          <form id="decisionForm" class="inline-form" autocomplete="off">
+            <input id="decisionInput" maxlength="160" placeholder="결정 고정" aria-label="결정사항" />
+            <button class="btn small" type="submit" aria-label="결정사항 고정">＋</button>
+          </form>
+        </section>
       </div>
-    </section>
+    </div>
+  </aside>
 
-    <!-- 작업실 -->
-    <section id="view-workspace" class="view" aria-label="작업실">
-      <div class="view-head">
-        <div>
-          <h2>작업실</h2>
-          <p class="hint">카드를 끌어 옮기거나 ← → 버튼으로 상태를 바꿀 수 있어요. 담당 피클을 지정해 두면 누가 무엇을 하는지 한눈에 보여요.</p>
-        </div>
+  <!-- ============ 작업실 패널 ============ -->
+  <aside id="panelWorkspace" class="panel" hidden aria-label="작업실">
+    <header class="panel-head">
+      <h2>🛠️ 작업실 · 퀘스트</h2>
+      <div class="panel-tools">
+        <span class="pill" id="taskCount">0</span>
+        <button type="button" class="icon-btn" data-goto="workspace" title="작업실로 이동">➜</button>
+        <button type="button" class="icon-btn panel-close" data-close="#panelWorkspace" aria-label="닫기">✕</button>
       </div>
-
+    </header>
+    <div class="panel-body">
       <div class="kanban" id="kanban">
         <section class="col" data-status="todo">
           <header class="col-head"><h3>📥 할 일</h3><span class="pill" data-col-count="todo">0</span></header>
           <div class="cards" data-drop="todo"></div>
-          <button class="btn ghost small wide add-card" data-add="todo" type="button">+ 카드 추가</button>
+          <button class="btn ghost small wide add-card" data-add="todo" type="button">＋ 퀘스트 추가</button>
         </section>
         <section class="col" data-status="doing">
           <header class="col-head"><h3>🚀 진행 중</h3><span class="pill" data-col-count="doing">0</span></header>
           <div class="cards" data-drop="doing"></div>
-          <button class="btn ghost small wide add-card" data-add="doing" type="button">+ 카드 추가</button>
+          <button class="btn ghost small wide add-card" data-add="doing" type="button">＋ 퀘스트 추가</button>
         </section>
         <section class="col" data-status="done">
           <header class="col-head"><h3>✅ 완료</h3><span class="pill" data-col-count="done">0</span></header>
           <div class="cards" data-drop="done"></div>
-          <button class="btn ghost small wide add-card" data-add="done" type="button">+ 카드 추가</button>
+          <button class="btn ghost small wide add-card" data-add="done" type="button">＋ 퀘스트 추가</button>
         </section>
       </div>
 
-      <section class="card notes">
-        <div class="card-head">
-          <h3>📎 공유 메모 · 링크</h3>
-          <span class="muted small">회의 자료, 참고 링크, 메모를 함께 모아 둬요</span>
-        </div>
+      <section class="block notes">
+        <h3>📎 공유 메모 · 링크</h3>
         <div class="notes-grid" id="notesGrid"></div>
         <form id="noteForm" class="note-form" autocomplete="off">
           <input id="noteTitle" maxlength="80" placeholder="제목" aria-label="메모 제목" required />
@@ -222,20 +213,26 @@
           <button class="btn primary small" type="submit">추가</button>
         </form>
       </section>
-    </section>
+    </div>
+  </aside>
 
-  </main>
-
-  <footer class="footer">
-    <span>합동 비서실 · Pickle Joint Office</span>
-    <span class="dot" aria-hidden="true">·</span>
-    <span id="footerMode">연결 확인 중…</span>
-    <span class="dot" aria-hidden="true">·</span>
-    <a href="https://github.com/d4rk6un/pickle-office" target="_blank" rel="noopener">GitHub</a>
-  </footer>
+  <!-- ============ 동료 피클 패널 ============ -->
+  <aside id="panelCrew" class="panel" hidden aria-label="접속 중인 동료 피클">
+    <header class="panel-head">
+      <h2>👥 접속 중인 피클</h2>
+      <div class="panel-tools">
+        <button type="button" class="icon-btn panel-close" data-close="#panelCrew" aria-label="닫기">✕</button>
+      </div>
+    </header>
+    <div class="panel-body">
+      <div id="crewList" class="crew-list"></div>
+      <p class="hint small">이름을 누르면 프로필을 보고, <b>➜</b> 로 그 피클이 있는 구역으로 이동해요.</p>
+    </div>
+  </aside>
 
 </div>
 
+<!-- ============ 공용 모달 ============ -->
 <dialog id="modal" class="modal">
   <form method="dialog" class="modal-inner" id="modalForm">
     <div class="modal-head">
@@ -252,8 +249,12 @@
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-<script src="config.js?v=20261127e"></script>
-<script src="db.js?v=20261127e"></script>
-<script src="app.js?v=20261127e"></script>
+<noscript><p class="noscript">합동 비서실은 자바스크립트가 필요합니다.</p></noscript>
+
+<script src="config.js?v=20261128a"></script>
+<script src="db.js?v=20261128a"></script>
+<script src="art.js?v=20261128a"></script>
+<script src="world.js?v=20261128a"></script>
+<script src="app.js?v=20261128a"></script>
 </body>
 </html>

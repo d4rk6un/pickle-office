@@ -1,32 +1,30 @@
 /* =========================================================
-   app.js — 합동 비서실 화면 로직
-   오피스 맵 · 회의실 · 작업실
+   app.js — 합동 비서실 (메타버스 에디션) 화면 로직
+   ---------------------------------------------------------
+   · 입장코드 게이트 · 프로필 · 실시간 데이터 구독
+   · 게임 HUD · 구역 패널(회의실/작업실/동료) · 캔버스 월드 연동
    ========================================================= */
 
 (function () {
   "use strict";
 
   const Store = window.OfficeStore;
+  const World = window.OfficeWorld;
+  const Art = window.OfficeArt;
+
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
 
-  const COLORS = {
-    pink: "#ff87bd",
-    purple: "#a78bfa",
-    green: "#5ed3a3",
-    blue: "#6fa8ff",
-    orange: "#ffb35c",
-    yellow: "#ffc94d",
-    mint: "#4fd6c8",
-    coral: "#ff8a80"
-  };
-  const COLOR_KEYS = Object.keys(COLORS);
+  const COLORS = Art.COLORS;
+  const COLOR_KEYS = Art.COLORS_KEYS;
+  const GLYPH_FALLBACK = "?";
 
   const ROOMS = {
+    workspace: { name: "작업실", icon: "🛠️" },
     meeting: { name: "회의실", icon: "🗓️" },
-    workspace: { name: "작업실", icon: "💻" },
     lounge: { name: "라운지", icon: "☕" },
-    away: { name: "부재중", icon: "🌙" }
+    away: { name: "테라스", icon: "🌙" },
+    hallway: { name: "복도", icon: "🚶" }
   };
   const STATUS_COLS = [
     { key: "todo", name: "할 일" },
@@ -35,19 +33,23 @@
   ];
 
   const CLIENT_KEY = "pickle-office-client";
-  const NEW_AGENT = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.newAgent) || {};
-  const DESKS = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.desks) || 6;
   const ONLINE_MS = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.onlineWindowMs) || 180000;
 
   const state = {
     agents: {}, chat: {}, tasks: {}, notes: {}, agenda: {}, decisions: {},
-    me: null,
     authUser: null,
-    tab: "map",
     modalSubmit: null,
     setupOpen: false,
     pendingProfile: false,
-    chatDirty: true
+    panel: null,
+    autoZone: null,
+    autoSuppressUntil: 0,
+    sound: false,
+    firstAgents: true,
+    emojiSeen: {},
+    chatSeen: null,
+    lastZone: "hallway",
+    connected: false
   };
 
   /* ---------------- 작은 도구들 ---------------- */
@@ -87,10 +89,11 @@
 
   function toast(message) {
     const el = $("#toast");
+    if (!el) return;
     el.textContent = message;
     el.classList.add("show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(() => el.classList.remove("show"), 2200);
+    toast._t = setTimeout(() => el.classList.remove("show"), 2400);
   }
 
   function colorOf(agent) {
@@ -98,10 +101,9 @@
     return COLORS[key] || (/^#/.test(key) ? key : COLORS.purple);
   }
 
-  function initialOf(name) {
-    if (!name) return "?";
-    const first = String(name).trim()[0] || "?";
-    return first;
+  function glyphOf(agent) {
+    if (!agent) return GLYPH_FALLBACK;
+    return Art.glyphFor(agent) || GLYPH_FALLBACK;
   }
 
   function isOnline(agent) {
@@ -125,10 +127,9 @@
   }
 
   function byTime(a, b) { return (a.ts || a.createdAt || 0) - (b.ts || b.createdAt || 0); }
-
   function values(obj) { return Object.keys(obj || {}).map((k) => Object.assign({ id: k }, obj[k] || {})); }
 
-  /* ---------------- 내 정체성 : 입장코드 해시(agentId) = 내 피클 ---------------- */
+  /* ---------------- 내 정체성 ---------------- */
 
   const CLIENT = (function () {
     let id = null;
@@ -140,7 +141,6 @@
     return id;
   })();
 
-  function currentUser() { return Store.user ? Store.user() : null; }
   function myAgentId() { return Store.agentId ? Store.agentId() : null; }
 
   function myAgent() {
@@ -166,13 +166,10 @@
     catch (e) { /* ignore */ }
   }
 
-  /* 내 피클 확인: 이 입장코드로 이미 만든 프로필이 있으면 그대로 쓰고,
-     처음이면 프로필 입력 창을 엽니다. (같은 코드 = 어느 기기에서든 같은 자리) */
   async function ensureProfile() {
     const id = myAgentId();
     if (!id) return;
     if (state.agents[id]) { await touchPresence(); return; }
-    // 첫 스냅샷 전에 쓰면 기존 프로필을 덮어쓸 수 있으므로 스냅샷이 온 뒤에만 진행합니다
     if (!(Store.has && Store.has("agents"))) return;
     openSetupModal(id);
   }
@@ -197,7 +194,7 @@
     const ok = $("#modalOk");
     ok.textContent = options.okText || "확인";
     const cancel = $(".modal-foot .btn.ghost");
-    cancel.hidden = !!options.hideCancel;
+    if (cancel) cancel.hidden = !!options.hideCancel;
     state.modalSubmit = options.onSubmit || null;
     if (!dialog.open) dialog.showModal();
     const first = body.querySelector("input, textarea, select");
@@ -221,9 +218,12 @@
       .catch((err) => { console.error(err); toast("저장하지 못했어요"); });
   });
 
-  dialog.addEventListener("close", function () { state.modalSubmit = null; state.setupOpen = false; });
+  dialog.addEventListener("close", function () {
+    state.modalSubmit = null;
+    state.setupOpen = false;
+  });
 
-  /* ---------------- 내 프로필 ---------------- */
+  /* ---------------- 프로필 ---------------- */
 
   function swatchPicker(initialKey) {
     let picked = COLOR_KEYS.indexOf(initialKey) >= 0 ? initialKey : "purple";
@@ -243,46 +243,50 @@
     return { el: el, picked: () => picked };
   }
 
-  /* 처음 입장한 코드: 자기 피클 프로필을 만들어 /office/agents/{agentId} 에 저장 */
   function openSetupModal(agentId) {
     const id = agentId || myAgentId();
     if (!id) return;
     if (state.setupOpen) return;
+
     const nameInput = h("input", { type: "text", maxlength: "20", placeholder: "예: 찐구리", autocomplete: "off" });
     const initialInput = h("input", { type: "text", maxlength: "2", placeholder: "자동", autocomplete: "off" });
     const roleInput = h("input", { type: "text", maxlength: "30", placeholder: "예: 여행 담당 (선택)" });
-    const swatches = swatchPicker(NEW_AGENT.color || "pink");
+    const swatches = swatchPicker("pink");
 
     state.setupOpen = true;
     openModal({
-      title: "내 피클 프로필",
-      okText: "시작하기",
+      title: "🎮 내 피클 만들기",
+      okText: "오피스 입장",
       hideCancel: true,
       body: [
-        h("p", { class: "hint", text: "입장코드가 확인됐어요. 이 코드로는 처음 들어왔으니, 오피스에 표시할 내 피클을 정해 주세요. 다음부터는 같은 자리로 바로 입장해요." }),
+        h("p", { class: "hint", text: "입장코드가 확인됐어요. 이 코드로는 처음 들어왔으니, 오피스에 세울 내 캐릭터를 정해 주세요. 다음부터는 같은 코드로 같은 자리에 서요." }),
         field("이름", nameInput),
-        field("이니셜 (선택)", initialInput, "비워 두면 이름 첫 글자를 써요"),
+        field("이니셜 (선택)", initialInput, "얼굴에 새길 글자예요. 비워 두면 이름 첫 글자."),
         field("역할 (선택)", roleInput),
-        field("색깔", swatches.el),
-        h("div", { class: "small muted" }, "내 피클 ID: ", id)
+        field("캐릭터 색", swatches.el),
+        h("div", { class: "small muted mono" }, "내 피클 ID: ", id)
       ],
       onSubmit: async () => {
         const name = nameInput.value.trim();
         if (!name) { toast("이름을 입력해 주세요"); nameInput.focus(); return false; }
+        const spawn = Art.spawnFor("workspace");
         await Store.set("agents", id, {
           name: name,
-          initial: initialInput.value.trim() || initialOf(name),
+          initial: initialInput.value.trim() || name.trim().charAt(0),
           color: swatches.picked(),
           role: roleInput.value.trim(),
-          location: NEW_AGENT.location || "workspace",
+          location: "workspace",
           desk: null,
-          status: NEW_AGENT.status || "오피스 접속 중",
+          status: "오피스 접속 중",
+          x: spawn.x,
+          y: spawn.y,
           updatedAt: Date.now(),
           client: CLIENT
         });
         state.setupOpen = false;
         renderAll();
-        toast(name + " 피클로 입장했어요");
+        World.setMe(id);
+        toast("🎉 " + name + " 피클로 입장했어요");
       }
     });
   }
@@ -302,23 +306,23 @@
     const swatches = swatchPicker(me.color || "purple");
 
     openModal({
-      title: "내 프로필",
+      title: "🪪 내 프로필",
       okText: "저장",
       body: [
         field("이름", nameInput),
-        field("이니셜", initialInput),
+        field("이니셜", initialInput, "얼굴에 새길 글자"),
         field("역할", roleInput),
-        field("상태 메시지", statusInput, "오피스 맵에 함께 표시돼요"),
-        field("색깔", swatches.el),
-        h("div", { class: "small muted" }, "현재 위치: ", ROOMS[me.location] ? ROOMS[me.location].name : "부재중", me.desk ? " · " + me.desk + "번 자리" : ""),
-        h("div", { class: "small muted" }, "내 피클 ID: ", me.id)
+        field("상태 메시지", statusInput, "맵 위 캐릭터 옆에 표시돼요"),
+        field("캐릭터 색", swatches.el),
+        h("div", { class: "small muted" }, "현재 위치: ", ROOMS[me.location] ? ROOMS[me.location].name : "복도"),
+        h("div", { class: "small muted mono" }, "내 피클 ID: ", me.id)
       ],
       onSubmit: async () => {
         const name = nameInput.value.trim();
         if (!name) { toast("이름을 입력해 주세요"); return false; }
         await Store.update("agents", me.id, {
           name: name,
-          initial: initialInput.value.trim() || initialOf(name),
+          initial: initialInput.value.trim() || name.trim().charAt(0),
           role: roleInput.value.trim(),
           status: statusInput.value.trim(),
           color: swatches.picked(),
@@ -333,106 +337,92 @@
 
   /* ---------------- 이동 ---------------- */
 
-  async function moveTo(zone, desk) {
+  function moveTo(zone) {
     if (!requireMe()) return;
-    const me = myAgent();
-    if (zone === "workspace" && desk) {
-      const occupied = values(state.agents).find((a) => a.id !== me.id && a.location === "workspace" && Number(a.desk) === desk);
-      if (occupied) { toast(occupied.name + " 님이 쓰고 있는 자리예요"); return; }
-    }
-    const patch = {
-      location: zone,
-      desk: zone === "workspace" && desk ? desk : null,
-      updatedAt: Date.now(),
-      client: CLIENT
-    };
-    if (zone === "away" && !(me.status || "").trim()) patch.status = "자리 비움";
-    await Store.update("agents", me.id, patch);
-    toast(ROOMS[zone].name + (patch.desk ? " " + patch.desk + "번 자리" : "") + "로 이동했어요");
+    if (!ROOMS[zone] || zone === "hallway") return;
+    World.teleport(zone);
+    state.autoZone = zone;
   }
 
-  /* ---------------- 렌더: 공통 ---------------- */
-
-  function agentChip(agent, options) {
-    const opts = options || {};
-    const mine = state.me && agent.id === state.me.id;
-    const chip = h("button", {
-      type: "button",
-      class: "agent" + (mine ? " is-me" : ""),
-      dataset: { agent: agent.id },
-      title: (agent.status || "") + " · " + (ROOMS[agent.location] ? ROOMS[agent.location].name : "부재중")
-    },
-      h("span", { class: "avatar", style: { "--c": colorOf(agent) } },
-        agent.initial || initialOf(agent.name),
-        h("span", { class: "dot-live" + (isOnline(agent) ? "" : " off") })
-      ),
-      h("span", { class: "agent-meta" },
-        h("span", { class: "agent-name", text: (agent.name || "이름 없음") + (mine ? " (나)" : "") }),
-        opts.showStatus === false ? null : h("span", { class: "agent-status", text: agent.status || "상태 메시지 없음" })
-      )
-    );
-    return chip;
-  }
+  /* ---------------- 렌더: HUD ---------------- */
 
   function renderBadge() {
     const badge = $("#dbBadge");
-    badge.classList.remove("live", "pending");
+    if (!badge) return;
     const status = Store.status;
     const signedIn = !!myAgentId();
+    badge.classList.remove("live", "warn");
     if (Store.mode !== "firebase") {
-      badge.textContent = "로컬 데모 모드";
-      badge.classList.add("pending");
+      badge.textContent = "데모 모드";
+      badge.classList.add("warn");
     } else if (status === "error") {
-      badge.textContent = "인증 서버에 연결하지 못했어요";
-      badge.classList.add("pending");
+      badge.textContent = "서버 오류";
+      badge.classList.add("warn");
     } else if (!signedIn) {
-      badge.textContent = "입장코드 필요";
-      badge.classList.add("pending");
+      badge.textContent = "입장 전";
+      badge.classList.add("warn");
     } else if (status === "live") {
-      badge.textContent = "실시간 동기화 중";
+      badge.textContent = "● 실시간";
       badge.classList.add("live");
     } else if (status === "denied") {
-      badge.textContent = "접근 권한 없음 · 보안 규칙 확인";
-      badge.classList.add("pending");
+      badge.textContent = "⛔ 권한 없음";
+      badge.classList.add("warn");
     } else if (status === "offline") {
-      badge.textContent = "실시간 DB 연결 끊김 · 재연결 중";
-      badge.classList.add("pending");
+      badge.textContent = "○ 재연결 중";
+      badge.classList.add("warn");
     } else {
-      badge.textContent = "실시간 DB 연결 중…";
-      badge.classList.add("pending");
+      badge.textContent = "○ 연결 중";
+      badge.classList.add("warn");
     }
-    let foot = "Firebase Realtime Database";
-    if (Store.mode !== "firebase") foot = "로컬 데모 모드 · Firebase 설정 없음";
-    else if (!signedIn) foot = "입장 전 · 데이터 잠김";
-    else if (status === "live") foot = "입장코드 세션 · 실시간 동기화";
-    $("#footerMode").textContent = foot;
   }
 
-  function renderMe() {
+  function renderHud() {
     const me = myAgent();
     const avatar = $("#meAvatar");
     const name = $("#meName");
+    const role = $("#meRole");
+
     if (me) {
-      avatar.textContent = me.initial || initialOf(me.name);
+      avatar.textContent = glyphOf(me);
       avatar.style.background = colorOf(me);
       name.textContent = me.name;
+      role.textContent = me.role || (me.status || "오피스 접속 중");
     } else if (myAgentId()) {
-      avatar.textContent = "+";
+      avatar.textContent = "＋";
       avatar.style.background = COLORS.purple;
       name.textContent = "프로필 설정";
+      role.textContent = "캐릭터를 만들어요";
     } else {
       avatar.textContent = "?";
       avatar.style.background = COLORS.purple;
       name.textContent = "내 피클";
+      role.textContent = "입장 전";
     }
+
+    const list = values(state.agents);
+    const online = list.filter(isOnline).length;
+    $("#onlineChip").textContent = "🟢 " + online + " / " + list.length;
+
+    $("#zoneChip").textContent = "📍 " + (World && World.zoneName ? World.zoneName() : "복도");
+
+    const tag = $("#accountTag");
+    if (tag) {
+      tag.textContent = myAgentId() || "";
+      tag.hidden = !myAgentId();
+    }
+    const logout = $("#logoutBtn");
+    if (logout) logout.hidden = !myAgentId();
+
+    const led = $("#meLed");
+    if (led) led.className = "led" + (me ? " on" : "");
   }
 
-  /* ---------------- 렌더: 오피스 맵 ---------------- */
+  /* ---------------- 렌더: 회의실 ---------------- */
 
   function sortedAgents(list) {
     return list.slice().sort((a, b) => {
-      const mineA = state.me && a.id === state.me.id ? 0 : 1;
-      const mineB = state.me && b.id === state.me.id ? 0 : 1;
+      const mineA = myAgentId() && a.id === myAgentId() ? 0 : 1;
+      const mineB = myAgentId() && b.id === myAgentId() ? 0 : 1;
       if (mineA !== mineB) return mineA - mineB;
       const onlineA = isOnline(a) ? 0 : 1;
       const onlineB = isOnline(b) ? 0 : 1;
@@ -441,138 +431,57 @@
     });
   }
 
-  function renderMap() {
-    const agents = values(state.agents);
-    const me = myAgent();
-
-    // 빠른 이동
-    const quick = $("#quickMove");
-    clear(quick);
-    Object.keys(ROOMS).forEach((zone) => {
-      const here = me && me.location === zone && !(zone === "workspace" && me.desk);
-      quick.append(h("button", {
-        type: "button",
-        class: "chip-btn" + (here ? " is-here" : ""),
-        dataset: { zone: zone },
-        onclick: () => moveTo(zone, null)
-      }, ROOMS[zone].icon + " " + ROOMS[zone].name));
-    });
-
-    // 구역별 인원
-    Object.keys(ROOMS).forEach((zone) => {
-      const count = agents.filter((a) => a.location === zone).length;
-      const badge = $('[data-count="' + zone + '"]');
-      if (badge) badge.textContent = String(count);
-      const empty = $('[data-empty="' + zone + '"]');
-      if (empty) empty.hidden = count > 0;
-    });
-
-    // 작업실 책상
-    const desks = $("#desks");
-    clear(desks);
-    for (let n = 1; n <= DESKS; n++) {
-      const occupant = sortedAgents(agents.filter((a) => a.location === "workspace" && Number(a.desk) === n))[0];
-      const mine = occupant && me && occupant.id === me.id;
-      const desk = h("button", {
-        type: "button",
-        class: "desk" + (mine ? " is-mine" : "") + (occupant ? " is-taken" : ""),
-        dataset: { desk: String(n) },
-        "aria-label": n + "번 자리" + (occupant ? " · " + occupant.name : " · 빈자리")
-      },
-        h("span", { class: "desk-label", text: n + "번" }),
-        occupant
-          ? h("span", { class: "desk-occupant" },
-              h("span", { class: "avatar sm", style: { "--c": colorOf(occupant) } }, occupant.initial || initialOf(occupant.name)),
-              h("span", { class: "agent-name", text: occupant.name })
-            )
-          : h("span", { class: "desk-empty", text: "빈자리" })
-      );
-      desks.append(desk);
-    }
-
-    // 구역별 아바타
-    Object.keys(ROOMS).forEach((zone) => {
-      const holder = $('[data-agents="' + zone + '"]');
-      if (!holder) return;
-      clear(holder);
-      let list;
-      if (zone === "workspace") {
-        list = agents.filter((a) => a.location === "workspace" && !a.desk);
-      } else {
-        list = agents.filter((a) => a.location === zone);
-      }
-      sortedAgents(list).forEach((agent) => holder.append(agentChip(agent)));
-    });
+  function agentRow(agent) {
+    const mine = myAgentId() && agent.id === myAgentId();
+    return h("button", {
+      type: "button", class: "crew-row" + (mine ? " is-me" : ""),
+      onclick: () => openAgentCard(agent)
+    },
+      h("span", { class: "avatar", style: { "--c": colorOf(agent) } },
+        glyphOf(agent),
+        h("i", { class: "dot-live" + (isOnline(agent) ? "" : " off") })
+      ),
+      h("span", { class: "crew-meta" },
+        h("strong", { text: (agent.name || "이름 없음") + (mine ? " (나)" : "") }),
+        h("small", { text: (agent.role || agent.status || "상태 메시지 없음") })
+      ),
+      h("span", { class: "crew-zone", text: ROOMS[agent.location] ? ROOMS[agent.location].icon : "🚶" })
+    );
   }
 
-  function openAgentCard(agent) {
-    const mine = state.me && agent.id === state.me.id;
-    const where = ROOMS[agent.location] ? ROOMS[agent.location].name : "부재중";
-    openModal({
-      title: agent.name || "피클",
-      okText: mine ? "프로필 수정" : "닫기",
-      hideCancel: !mine,
-      body: [
-        h("div", { class: "participant" },
-          h("span", { class: "avatar lg", style: { "--c": colorOf(agent) } }, agent.initial || initialOf(agent.name)),
-          h("div", { class: "agent-meta" },
-            h("span", { class: "agent-name", text: agent.name || "" }),
-            h("span", { class: "agent-status", text: agent.status || "상태 메시지 없음" })
-          )
-        ),
-        h("div", { class: "small" }, "위치: ", where, agent.desk ? " · " + agent.desk + "번 자리" : ""),
-        agent.role ? h("div", { class: "small" }, "역할: ", agent.role) : null,
-        h("div", { class: "small muted" }, "최근 활동: ", fmtWhen(agent.updatedAt), isOnline(agent) ? " · 접속 중" : " · 자리 비움")
-      ],
-      onSubmit: () => {
-        if (!mine) return true;
-        openProfileModal(); // 같은 창에서 내용만 바꿔요
-        return false;
-      }
-    });
-  }
-
-  /* ---------------- 렌더: 회의실 ---------------- */
-
-  function renderMeeting() {
+  function renderParticipants() {
     const agents = values(state.agents);
     const inRoom = sortedAgents(agents.filter((a) => a.location === "meeting"));
 
-    $("#meetingCount").textContent = String(inRoom.length);
-    $("#meetingCountSide").textContent = String(inRoom.length);
+    const countEl = $("#meetingCount");
+    if (countEl) countEl.textContent = String(inRoom.length);
 
     const list = $("#participants");
+    if (!list) return;
     clear(list);
     if (!inRoom.length) {
-      list.append(h("p", { class: "empty-note", text: "아직 회의실에 아무도 없어요. 아래 버튼으로 들어와 보세요." }));
+      list.append(h("p", { class: "empty-note", text: "아직 회의실에 아무도 없어요. 구역 버튼으로 들어와 보세요." }));
     } else {
-      inRoom.forEach((agent) => {
-        list.append(h("div", { class: "participant" },
-          h("span", { class: "avatar", style: { "--c": colorOf(agent) } },
-            agent.initial || initialOf(agent.name),
-            h("span", { class: "dot-live" + (isOnline(agent) ? "" : " off") })),
-          h("div", { class: "agent-meta" },
-            h("span", { class: "agent-name", text: agent.name }),
-            h("span", { class: "agent-status", text: agent.status || "" })
-          )
-        ));
-      });
+      inRoom.forEach((agent) => list.append(agentRow(agent)));
     }
+  }
 
-    // 채팅
+  function renderMeeting() {
+    renderParticipants();
+
     const log = $("#chatLog");
+    if (!log) return;
     const messages = values(state.chat).sort(byTime).slice(-300);
-    const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 120;
+    const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 140;
     const prevCount = Number(log.dataset.count || 0);
     clear(log);
     if (!messages.length) {
-      log.append(h("p", { class: "empty-note", text: "첫 메시지를 남겨 보세요." }));
+      log.append(h("p", { class: "empty-note", text: "첫 메시지를 남겨 보세요. 맵 위 캐릭터 머리에도 말풍선이 떠요." }));
     }
     messages.forEach((m) => {
-      const meNow = myAgent();
-      const mine = m.agentId ? (state.me && m.agentId === state.me.id) : (!!meNow && m.name === meNow.name);
+      const mine = m.agentId ? (myAgentId() && m.agentId === myAgentId()) : false;
       log.append(h("div", { class: "msg" + (mine ? " mine" : "") },
-        h("span", { class: "avatar sm", style: { "--c": COLORS[m.color] || m.color || COLORS.purple } }, m.initial || initialOf(m.name)),
+        h("span", { class: "avatar sm", style: { "--c": COLORS[m.color] || m.color || COLORS.purple } }, m.initial ? (m.initial.charCodeAt(0) >= 0xAC00 ? Art.glyphFor({ initial: m.initial }) : m.initial) : "?"),
         h("div", { class: "msg-body" },
           h("div", { class: "msg-head" },
             h("span", { class: "msg-name", text: m.name || "익명 피클" }),
@@ -586,47 +495,50 @@
     if (nearBottom || messages.length !== prevCount) {
       requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
     }
-    $("#chatMeta").textContent = messages.length ? messages.length + "개 메시지" : "";
+    const meta = $("#chatMeta");
+    if (meta) meta.textContent = messages.length ? messages.length + "개 메시지" : "";
 
-    // 안건
     const agendaList = $("#agendaList");
-    clear(agendaList);
-    const agenda = values(state.agenda).sort(byTime);
-    if (!agenda.length) agendaList.append(h("li", { class: "empty-note", text: "안건이 아직 없어요." }));
-    agenda.forEach((item) => {
-      agendaList.append(h("li", { class: "pin-item" + (item.done ? " done" : "") },
-        h("button", {
-          type: "button", class: "pin-check", title: item.done ? "완료 취소" : "완료 표시",
-          onclick: () => Store.update("agenda", item.id, { done: !item.done })
-        }, item.done ? "✅" : "⬜"),
-        h("span", { class: "pin-text" },
-          item.text,
-          h("span", { class: "pin-by", text: (item.by || "") + " · " + fmtTime(item.ts) })
-        ),
-        h("button", {
-          type: "button", class: "icon-btn", "aria-label": "안건 삭제",
-          onclick: () => confirmDelete("안건을 지울까요?", item.text, () => Store.remove("agenda", item.id))
-        }, "✕")
-      ));
-    });
+    if (agendaList) {
+      clear(agendaList);
+      const agenda = values(state.agenda).sort(byTime);
+      if (!agenda.length) agendaList.append(h("li", { class: "empty-note", text: "안건이 아직 없어요." }));
+      agenda.forEach((item) => {
+        agendaList.append(h("li", { class: "pin-item" + (item.done ? " done" : "") },
+          h("button", {
+            type: "button", class: "pin-check", title: item.done ? "완료 취소" : "완료 표시",
+            onclick: () => Store.update("agenda", item.id, { done: !item.done })
+          }, item.done ? "✅" : "⬜"),
+          h("span", { class: "pin-text" },
+            item.text,
+            h("span", { class: "pin-by", text: (item.by || "") + " · " + fmtTime(item.ts) })
+          ),
+          h("button", {
+            type: "button", class: "icon-btn tiny", "aria-label": "안건 삭제",
+            onclick: () => confirmDelete("안건을 지울까요?", item.text, () => Store.remove("agenda", item.id))
+          }, "✕")
+        ));
+      });
+    }
 
-    // 결정사항
     const decisionList = $("#decisionList");
-    clear(decisionList);
-    const decisions = values(state.decisions).sort(byTime).reverse();
-    if (!decisions.length) decisionList.append(h("li", { class: "empty-note", text: "아직 고정된 결정사항이 없어요." }));
-    decisions.forEach((item) => {
-      decisionList.append(h("li", { class: "pin-item" },
-        h("span", { class: "pin-text" },
-          item.text,
-          h("span", { class: "pin-by", text: (item.by || "") + " · " + fmtTime(item.ts) })
-        ),
-        h("button", {
-          type: "button", class: "icon-btn", "aria-label": "결정사항 삭제",
-          onclick: () => confirmDelete("결정사항을 지울까요?", item.text, () => Store.remove("decisions", item.id))
-        }, "✕")
-      ));
-    });
+    if (decisionList) {
+      clear(decisionList);
+      const decisions = values(state.decisions).sort(byTime).reverse();
+      if (!decisions.length) decisionList.append(h("li", { class: "empty-note", text: "아직 고정된 결정사항이 없어요." }));
+      decisions.forEach((item) => {
+        decisionList.append(h("li", { class: "pin-item" },
+          h("span", { class: "pin-text" },
+            item.text,
+            h("span", { class: "pin-by", text: (item.by || "") + " · " + fmtTime(item.ts) })
+          ),
+          h("button", {
+            type: "button", class: "icon-btn tiny", "aria-label": "결정사항 삭제",
+            onclick: () => confirmDelete("결정사항을 지울까요?", item.text, () => Store.remove("decisions", item.id))
+          }, "✕")
+        ));
+      });
+    }
   }
 
   /* ---------------- 렌더: 작업실 ---------------- */
@@ -640,12 +552,12 @@
   function taskCard(task) {
     const assignee = task.assignee ? state.agents[task.assignee] : null;
     const index = STATUS_COLS.findIndex((c) => c.key === (task.status || "todo"));
-    const card = h("article", { class: "task", draggable: "true", dataset: { task: task.id } },
+    const card = h("article", { class: "task" + (task.status === "done" ? " is-done" : ""), draggable: "true", dataset: { task: task.id } },
       h("p", { class: "task-title", text: task.title || "(제목 없음)" }),
       task.desc ? h("p", { class: "task-desc", text: task.desc }) : null,
       h("div", { class: "task-foot" },
         h("span", { class: "task-assignee" },
-          assignee ? h("span", { class: "avatar", style: { "--c": colorOf(assignee) } }, assignee.initial || initialOf(assignee.name)) : null,
+          assignee ? h("span", { class: "avatar xs", style: { "--c": colorOf(assignee) } }, glyphOf(assignee)) : null,
           assignee ? assignee.name : "담당 없음"
         ),
         h("div", { class: "task-actions" },
@@ -661,7 +573,7 @@
           }, "→"),
           h("button", {
             type: "button", class: "btn icon", "aria-label": "삭제",
-            onclick: () => confirmDelete("카드를 지울까요?", task.title, () => Store.remove("tasks", task.id))
+            onclick: () => confirmDelete("퀘스트를 지울까요?", task.title, () => Store.remove("tasks", task.id))
           }, "✕")
         )
       ),
@@ -684,22 +596,33 @@
 
   function renderWorkspace() {
     const all = values(state.tasks);
-    $("#taskCount").textContent = String(all.length);
+    const taskCount = $("#taskCount");
+    if (taskCount) taskCount.textContent = String(all.length);
 
+    const counts = { todo: 0, doing: 0, done: 0 };
     STATUS_COLS.forEach((col) => {
       const holder = $('[data-drop="' + col.key + '"]');
       const items = tasksByStatus(col.key);
+      counts[col.key] = items.length;
+      if (!holder) return;
       clear(holder);
       if (!items.length) {
-        holder.append(h("p", { class: "empty-note", text: "카드가 없어요" }));
+        holder.append(h("p", { class: "empty-note", text: "비어 있어요" }));
       }
       items.forEach((task) => holder.append(taskCard(task)));
       const count = $('[data-col-count="' + col.key + '"]');
       if (count) count.textContent = String(items.length);
     });
 
-    // 공유 메모
+    const qTodo = $("#qTodo");
+    const qDoing = $("#qDoing");
+    const qDone = $("#qDone");
+    if (qTodo) qTodo.textContent = String(counts.todo);
+    if (qDoing) qDoing.textContent = String(counts.doing);
+    if (qDone) qDone.textContent = String(counts.done);
+
     const grid = $("#notesGrid");
+    if (!grid) return;
     clear(grid);
     const notes = values(state.notes).sort(byTime).reverse();
     if (!notes.length) grid.append(h("p", { class: "empty-note", text: "공유할 메모나 링크를 추가해 보세요." }));
@@ -707,7 +630,7 @@
       const url = note.url && /^https?:\/\//i.test(note.url) ? note.url : "";
       grid.append(h("div", { class: "note" },
         h("button", {
-          type: "button", class: "icon-btn", "aria-label": "삭제",
+          type: "button", class: "icon-btn tiny", "aria-label": "삭제",
           onclick: () => confirmDelete("메모를 지울까요?", note.title, () => Store.remove("notes", note.id))
         }, "✕"),
         h("div", { class: "note-title", text: note.title || "제목 없음" }),
@@ -718,14 +641,28 @@
     });
   }
 
-  /* ---------------- 삭제 확인 ---------------- */
+  /* ---------------- 렌더: 동료 ---------------- */
 
-  function confirmDelete(title, detail, action) {
-    openModal({
-      title,
-      okText: "지우기",
-      body: [h("p", { class: "small", text: detail || "" })],
-      onSubmit: async () => { await action(); toast("지웠어요"); }
+  function renderCrew() {
+    const holder = $("#crewList");
+    if (!holder) return;
+    clear(holder);
+    const list = sortedAgents(values(state.agents));
+    if (!list.length) {
+      holder.append(h("p", { class: "empty-note", text: "아직 오피스에 아무도 없어요." }));
+      return;
+    }
+    list.forEach((agent) => {
+      const mine = myAgentId() && agent.id === myAgentId();
+      const row = h("div", { class: "crew-item" + (mine ? " is-me" : "") },
+        agentRow(agent),
+        h("button", {
+          type: "button", class: "btn tiny go",
+          disabled: mine || !agent.location || !ROOMS[agent.location],
+          onclick: () => { moveTo(agent.location); closePanel(); }
+        }, "➜")
+      );
+      holder.append(row);
     });
   }
 
@@ -733,31 +670,85 @@
 
   function renderAll() {
     renderBadge();
-    renderMe();
-    renderMap();
+    renderHud();
     renderMeeting();
     renderWorkspace();
+    renderCrew();
   }
 
-  /* ---------------- 입력 폼 ---------------- */
+  function openAgentCard(agent) {
+    const mine = myAgentId() && agent.id === myAgentId();
+    const where = ROOMS[agent.location] ? ROOMS[agent.location].name : "복도";
+    openModal({
+      title: agent.name || "피클",
+      okText: mine ? "프로필 수정" : "닫기",
+      hideCancel: !mine,
+      body: [
+        h("div", { class: "agent-card" },
+          h("span", { class: "avatar xl", style: { "--c": colorOf(agent) } }, glyphOf(agent)),
+          h("div", { class: "agent-card-meta" },
+            h("strong", { text: agent.name || "" }),
+            h("small", { text: agent.role || "역할 없음" }),
+            h("span", { class: "badge-line" + (isOnline(agent) ? " on" : "") },
+              isOnline(agent) ? "● 접속 중" : "○ 자리 비움",
+              " · ", where
+            )
+          )
+        ),
+        h("p", { class: "small" }, "상태: ", agent.status || "상태 메시지 없음"),
+        h("p", { class: "small muted" }, "최근 활동: ", fmtWhen(agent.updatedAt))
+      ],
+      onSubmit: () => {
+        if (!mine) return true;
+        openProfileModal();
+        return false;
+      }
+    });
+  }
+
+  function confirmDelete(title, detail, action) {
+    openModal({
+      title: title,
+      okText: "지우기",
+      body: [h("p", { class: "small", text: detail || "" })],
+      onSubmit: async () => { await action(); toast("지웠어요"); }
+    });
+  }
+
+  /* ---------------- 입력: 채팅 ---------------- */
+
+  async function submitChat(text) {
+    const value = String(text || "").trim();
+    if (!value) return;
+    if (!requireMe()) return;
+    const me = myAgent();
+    await Store.set("chat", Store.newId("msg"), {
+      name: me.name,
+      initial: me.initial || me.name.charAt(0),
+      color: me.color || "purple",
+      agentId: me.id,
+      text: value.slice(0, 500),
+      ts: Date.now()
+    });
+    World.bubble(me.id, value.length > 40 ? value.slice(0, 40) + "…" : value, "chat");
+  }
 
   $("#chatForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const input = $("#chatInput");
-    const text = input.value.trim();
-    if (!text) return;
-    if (!requireMe()) return;
-    const me = myAgent();
+    const text = input.value;
+    if (!text.trim()) return;
     input.value = "";
-    await Store.set("chat", Store.newId("msg"), {
-      name: me.name,
-      initial: me.initial || initialOf(me.name),
-      color: me.color || "purple",
-      agentId: me.id,
-      text: text.slice(0, 500),
-      ts: Date.now()
-    });
-    state.chatDirty = true;
+    await submitChat(text);
+  });
+
+  $("#quickChat").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const input = $("#quickInput");
+    const text = input.value;
+    if (!text.trim()) return;
+    input.value = "";
+    await submitChat(text);
   });
 
   $("#agendaForm").addEventListener("submit", async (event) => {
@@ -818,7 +809,7 @@
     });
 
     openModal({
-      title: "카드 추가",
+      title: "📜 퀘스트 추가",
       okText: "추가",
       body: [
         field("할 일", titleInput),
@@ -838,69 +829,65 @@
           createdBy: myAgent().name,
           createdAt: Date.now()
         });
-        toast("카드를 추가했어요");
+        toast("퀘스트를 추가했어요");
       }
     });
   }
 
-  /* ---------------- 이벤트 연결 ---------------- */
+  /* ---------------- 패널 ---------------- */
 
-  // 탭
-  function setTab(name) {
-    state.tab = name;
-    $$(".tab").forEach((tab) => {
-      const on = tab.dataset.tab === name;
-      tab.classList.toggle("is-active", on);
-      tab.setAttribute("aria-selected", on ? "true" : "false");
+  const PANELS = {
+    meeting: "#panelMeeting",
+    workspace: "#panelWorkspace",
+    crew: "#panelCrew"
+  };
+
+  function openPanel(name) {
+    if (!PANELS[name]) return;
+    Object.keys(PANELS).forEach((key) => {
+      const el = $(PANELS[key]);
+      if (el) el.hidden = key !== name;
     });
-    $$(".view").forEach((view) => view.classList.toggle("is-active", view.id === "view-" + name));
+    state.panel = name;
     if (name === "meeting") {
       const log = $("#chatLog");
-      requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+      if (log) requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
     }
-    if (location.hash !== "#" + name) {
-      try { history.replaceState(null, "", "#" + name); } catch (e) { /* ignore */ }
-    }
+    const panel = $(PANELS[name]);
+    if (panel) panel.classList.add("pop");
   }
 
-  $$(".tab").forEach((tab) => tab.addEventListener("click", () => setTab(tab.dataset.tab)));
+  function closePanel() {
+    Object.keys(PANELS).forEach((key) => {
+      const el = $(PANELS[key]);
+      if (el) el.hidden = true;
+    });
+    state.panel = null;
+  }
 
-  window.addEventListener("hashchange", () => {
-    const hash = (location.hash || "").replace("#", "");
-    if (["map", "meeting", "workspace"].includes(hash) && hash !== state.tab) setTab(hash);
+  function togglePanel(name) {
+    if (state.panel === name) closePanel();
+    else openPanel(name);
+  }
+
+  $$("[data-close]").forEach((btn) => {
+    btn.addEventListener("click", () => closePanel());
   });
 
-  // 오피스 맵 클릭 위임
-  $(".floor").addEventListener("click", (event) => {
-    const agentEl = event.target.closest(".agent");
-    if (agentEl) {
-      const key = agentEl.dataset.agent;
-      const agent = state.agents[key];
-      if (agent) openAgentCard(Object.assign({ id: key }, agent));
-      return;
-    }
-    const deskEl = event.target.closest(".desk");
-    if (deskEl) {
-      const desk = Number(deskEl.dataset.desk);
-      moveTo("workspace", desk);
-      return;
-    }
-    const roomEl = event.target.closest(".room");
-    if (roomEl) moveTo(roomEl.dataset.zone, null);
+  $$("[data-goto]").forEach((btn) => {
+    btn.addEventListener("click", () => moveTo(btn.dataset.goto));
   });
 
-  // 내 프로필
-  $("#meChip").addEventListener("click", () => {
-    if (myAgent()) openProfileModal();
-    else if (myAgentId()) openSetupModal();
-    else showGate();
+  $$(".zone-btn").forEach((btn) => {
+    btn.addEventListener("click", () => moveTo(btn.dataset.zone));
   });
 
-  $("#joinMeeting").addEventListener("click", () => moveTo("meeting", null));
+  // 퀘스트 추가 버튼
+  $$(".add-card").forEach((btn) => {
+    btn.addEventListener("click", () => openTaskModal(btn.dataset.add));
+  });
 
-  $$(".add-card").forEach((btn) => btn.addEventListener("click", () => openTaskModal(btn.dataset.add)));
-
-  // 드래그 앤 드롭
+  // 칸반 드래그 앤 드롭
   $$(".col").forEach((col) => {
     const status = col.dataset.status;
     col.addEventListener("dragover", (event) => {
@@ -920,59 +907,192 @@
     });
   });
 
-  // 상태 갱신: 저장소 구독
-  ["agents", "chat", "tasks", "notes", "agenda", "decisions"].forEach((path) => {
-    Store.on(path, (data) => {
-      state[path] = data || {};
-      if (path === "agents") {
-        renderMe();
-        renderMap();
-        renderMeeting();
-        renderWorkspace();
-        if (state.pendingProfile && Store.has && Store.has("agents")) {
-          state.pendingProfile = false;
-          ensureProfile().catch((err) => console.error("[profile]", err));
-        }
-      } else if (path === "chat") {
-        renderMeeting();
-      } else if (path === "tasks") {
-        renderWorkspace();
-      } else if (path === "notes") {
-        renderWorkspace();
-      } else {
-        renderMeeting();
-      }
+  $("#questMini").addEventListener("click", () => togglePanel("workspace"));
+  $("#crewBtn").addEventListener("click", () => togglePanel("crew"));
+
+  $("#soundBtn").addEventListener("click", () => {
+    state.sound = !state.sound;
+    World.setSound(state.sound);
+    const btn = $("#soundBtn");
+    btn.textContent = state.sound ? "🔊" : "🔈";
+    btn.setAttribute("aria-pressed", state.sound ? "true" : "false");
+    toast(state.sound ? "사운드 켜짐" : "사운드 꺼짐");
+  });
+
+  $("#helpBtn").addEventListener("click", () => {
+    openModal({
+      title: "🕹️ 조작법",
+      okText: "알겠어요",
+      hideCancel: true,
+      body: [
+        h("ul", { class: "help-list" },
+          h("li", { text: "WASD / 방향키, 또는 맵을 클릭해서 캐릭터를 걸어 다녀요." }),
+          h("li", { text: "회의실·작업실·라운지에 들어가면 해당 패널이 열려요. 상단 구역 버튼으로 바로 이동할 수 있어요." }),
+          h("li", { text: "아래 이모티콘 버튼을 누르면 머리 위에 감정이 떠요. 채팅도 말풍선으로 보여요." }),
+          h("li", { text: "작업실 패널에서 퀘스트(할 일)를 추가하고 상태를 바꿀 수 있어요." })
+        ),
+        h("p", { class: "small muted", text: "모바일에서는 왼쪽 아래 방향 패드로 움직여요." })
+      ]
     });
   });
 
-  Store.onStatus(renderBadge);
+  /* ---------------- 이모티콘 & 방향 패드 ---------------- */
 
-  // 하트비트 (접속 중 표시 유지)
-  setInterval(async () => {
+  async function sendEmoji(emoji) {
+    if (!requireMe()) return;
     const me = myAgent();
-    if (!me) return;
-    try { await Store.update("agents", me.id, { updatedAt: Date.now(), client: CLIENT }); }
-    catch (e) { /* ignore */ }
-  }, 45000);
+    const ts = Date.now();
+    World.bubble(me.id, emoji, "emoji");
+    state.emojiSeen[me.id] = ts;
+    try {
+      await Store.update("agents", me.id, { emoji: emoji, emojiTs: ts, updatedAt: ts, client: CLIENT });
+    } catch (e) {
+      console.error("[emoji]", e);
+      toast("이모티콘을 보내지 못했어요");
+    }
+  }
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "visible") return;
-    const me = myAgent();
-    if (me) Store.update("agents", me.id, { updatedAt: Date.now(), client: CLIENT }).catch(() => {});
+  $$(".emoji-btn").forEach((btn) => {
+    btn.addEventListener("click", () => sendEmoji(btn.dataset.emoji));
   });
 
-  // 모달 취소 시 포커스 복구
-  dialog.addEventListener("cancel", () => { state.modalSubmit = null; });
+  $$(".dpad-btn").forEach((btn) => {
+    const dir = btn.dataset.dir;
+    const down = (e) => { e.preventDefault(); btn.classList.add("is-down"); World.hold(dir, true); };
+    const up = () => { btn.classList.remove("is-down"); World.hold(dir, false); };
+    btn.addEventListener("pointerdown", down);
+    btn.addEventListener("pointerup", up);
+    btn.addEventListener("pointerleave", up);
+    btn.addEventListener("pointercancel", up);
+    btn.addEventListener("contextmenu", (e) => e.preventDefault());
+  });
 
-  /* ---------------- 인증 게이트 (피클 입장코드) ---------------- */
+  // 키보드: C 동료 패널, Escape 패널 닫기
+  window.addEventListener("keydown", (e) => {
+    const tag = (e.target && e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select") return;
+    if (e.key === "Escape") { closePanel(); return; }
+    if ((e.key === "c" || e.key === "C") && !dialog.open) togglePanel("crew");
+  });
+
+  $("#meChip").addEventListener("click", () => {
+    if (myAgent()) openProfileModal();
+    else if (myAgentId()) openSetupModal();
+    else showGate();
+  });
+
+  /* ---------------- 월드 콜백 ---------------- */
+
+  const worldCallbacks = {
+    onSync: function (pos) {
+      const me = myAgent();
+      if (!me) return;
+      const patch = {
+        x: pos.x,
+        y: pos.y,
+        updatedAt: Date.now(),
+        client: CLIENT
+      };
+      if (ROOMS[pos.zone] && pos.zone !== "hallway") patch.location = pos.zone;
+      Store.update("agents", me.id, patch).catch((err) => {
+        console.error("[sync]", err);
+      });
+    },
+    onZone: function (zone, name) {
+      state.lastZone = zone;
+      const chip = $("#zoneChip");
+      if (chip) chip.textContent = "📍 " + name;
+      showZoneToast(zone, name);
+      scheduleAutoPanel(zone);
+    },
+    onPickAgent: function (id) {
+      if (id === myAgentId()) { openProfileModal(); return; }
+      const agent = state.agents[id];
+      if (agent) openAgentCard(Object.assign({ id: id }, agent));
+    }
+  };
+
+  let zoneToastTimer = 0;
+  let autoPanelTimer = 0;
+
+  function showZoneToast(zone, name) {
+    const el = $("#zoneToast");
+    if (!el) return;
+    el.hidden = false;
+    el.textContent = (ROOMS[zone] ? ROOMS[zone].icon : "🚶") + " " + name + (zone === "hallway" ? "" : " 도착");
+    el.classList.add("show");
+    clearTimeout(zoneToastTimer);
+    zoneToastTimer = setTimeout(() => {
+      el.classList.remove("show");
+      setTimeout(() => { el.hidden = true; }, 260);
+    }, 1500);
+  }
+
+  function scheduleAutoPanel(zone) {
+    clearTimeout(autoPanelTimer);
+    if (Date.now() < state.autoSuppressUntil) return;
+    if (zone === "hallway" || zone === "away") return;
+    const target = zone === "lounge" ? "crew" : zone;
+    if (!PANELS[target]) return;
+    if (state.panel === target) return;
+    autoPanelTimer = setTimeout(() => {
+      if (state.lastZone !== zone) return;
+      openPanel(target);
+    }, 420);
+  }
+
+  /* ---------------- 입장 게이트 ---------------- */
 
   const gate = $("#authGate");
-  const appRoot = $(".app");
+  const appRoot = $("#appRoot");
   const authForm = $("#authForm");
   const codeInput = $("#accessCode");
   const authSubmit = $("#authSubmit");
   const authError = $("#authError");
   const authCodeNote = $("#authCode");
+
+  let titleRaf = 0;
+  let titleRunning = false;
+
+  function startTitleScene() {
+    if (titleRunning) return;
+    const cv = $("#titleCanvas");
+    if (!cv) return;
+    const g = cv.getContext("2d");
+    titleRunning = true;
+
+    function fit() {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = cv.getBoundingClientRect();
+      cv.width = Math.max(1, Math.round((rect.width || window.innerWidth) * dpr));
+      cv.height = Math.max(1, Math.round((rect.height || window.innerHeight) * dpr));
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cv._w = rect.width || window.innerWidth;
+      cv._h = rect.height || window.innerHeight;
+    }
+    fit();
+    window.addEventListener("resize", fit);
+
+    let last = 0;
+    function loop(t) {
+      if (!titleRunning) return;
+      titleRaf = requestAnimationFrame(loop);
+      const now = t || 0;
+      const dt = Math.min(0.05, (now - (last || now)) / 1000);
+      last = now;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      Art.drawTitleScene(g, cv._w, cv._h, now / 1000 + dt * 0);
+    }
+    titleRaf = requestAnimationFrame(loop);
+  }
+
+  function stopTitleScene() {
+    titleRunning = false;
+    if (titleRaf) cancelAnimationFrame(titleRaf);
+    titleRaf = 0;
+  }
 
   function setAuthError(message, code) {
     if (message) {
@@ -993,25 +1113,33 @@
 
   function setAuthBusy(busy) {
     authSubmit.disabled = !!busy;
-    authSubmit.textContent = busy ? "확인하는 중…" : "입장";
+    authSubmit.textContent = busy ? "확인 중…" : "ENTER OFFICE";
   }
 
   function showGate(message, code) {
     appRoot.hidden = true;
     gate.hidden = false;
     authSubmit.disabled = !(Store.mode === "firebase" || Store.mode === "local") || !Store.ready;
+    authSubmit.textContent = "ENTER OFFICE";
     if (message) setAuthError(message, code);
-    setTimeout(() => { try { codeInput.focus(); } catch (e) { /* ignore */ } }, 60);
+    startTitleScene();
+    setTimeout(() => { try { codeInput.focus(); } catch (e) { /* ignore */ } }, 80);
   }
 
   function resetState() {
     state.agents = {}; state.chat = {}; state.tasks = {};
     state.notes = {}; state.agenda = {}; state.decisions = {};
-    state.me = null;
     state.setupOpen = false;
     state.pendingProfile = false;
+    state.firstAgents = true;
+    state.chatSeen = null;
+    state.emojiSeen = {};
+    state.workspacePainted = false;
+    state.panel = null;
     if (dialog.open) { try { dialog.close(); } catch (e) { /* ignore */ } }
   }
+
+  let worldReady = false;
 
   function enterApp() {
     if (!myAgentId()) { showGate(); return; }
@@ -1020,7 +1148,24 @@
     setAuthError("");
     setAuthBusy(false);
     codeInput.value = "";
-    state.me = { id: myAgentId() };
+    stopTitleScene();
+    state.autoSuppressUntil = Date.now() + 2600;
+
+    if (!worldReady) {
+      World.init({
+        canvas: $("#worldCanvas"),
+        onSync: worldCallbacks.onSync,
+        onZone: worldCallbacks.onZone,
+        onPickAgent: worldCallbacks.onPickAgent
+      });
+      worldReady = true;
+    }
+    World.resize();
+    World.setMe(myAgentId());
+    World.setAgents(state.agents);
+    World.setSound(state.sound);
+    World.start();
+
     renderAll();
     if (Store.has && Store.has("agents")) {
       state.pendingProfile = false;
@@ -1031,6 +1176,10 @@
     } else {
       state.pendingProfile = true;
     }
+    setTimeout(() => {
+      const spawn = World.zoneName ? World.zoneName() : "오피스";
+      showZoneToast(World.zone ? World.zone() : "workspace", spawn);
+    }, 260);
   }
 
   function accessCodeMessage(err) {
@@ -1067,11 +1216,16 @@
     }
   });
 
+  codeInput.addEventListener("input", () => { setAuthError(""); });
+
   $("#logoutBtn").addEventListener("click", async () => {
     try {
       await Store.signOut();
+      World.pause();
+      World.setMe(null);
       resetState();
       renderAll();
+      closePanel();
       showGate("입장코드를 다시 입력해 주세요.");
       toast("로그아웃했어요");
     } catch (e) {
@@ -1079,56 +1233,147 @@
     }
   });
 
-  /* ---------------- 시작 ---------------- */
+  /* ---------------- 데이터 구독 ---------------- */
 
-  function onAuthChanged(user) {
+  ["agents", "chat", "tasks", "notes", "agenda", "decisions"].forEach((path) => {
+    Store.on(path, (data) => {
+      state[path] = data || {};
+      if (path === "agents") {
+        handleIncomingEmoji();
+        renderHud();
+        renderParticipants();
+        renderCrew();
+        if (!state.workspacePainted) {
+          state.workspacePainted = true;
+          renderWorkspace();
+        }
+        if (worldReady) World.setAgents(state.agents);
+        if (state.pendingProfile && Store.has && Store.has("agents")) {
+          state.pendingProfile = false;
+          ensureProfile().catch((err) => console.error("[profile]", err));
+        }
+      } else if (path === "chat") {
+        handleIncomingChat();
+        renderMeeting();
+      } else if (path === "tasks" || path === "notes") {
+        renderWorkspace();
+      } else {
+        renderMeeting();
+      }
+    });
+  });
+
+  function handleIncomingChat() {
+    const messages = values(state.chat).sort(byTime);
+    if (state.chatSeen === null) {
+      state.chatSeen = messages.length ? (messages[messages.length - 1].ts || 0) : 0;
+      return;
+    }
+    messages.forEach((m) => {
+      const ts = m.ts || 0;
+      if (ts <= state.chatSeen) return;
+      state.chatSeen = ts;
+      const mine = myAgentId() && m.agentId === myAgentId();
+      if (mine) return;
+      const fresh = Date.now() - ts < 15000;
+      if (!fresh) return;
+      if (m.agentId && state.agents[m.agentId]) {
+        World.bubble(m.agentId, m.text || "", "chat");
+      }
+    });
+  }
+
+  function handleIncomingEmoji() {
+    const list = values(state.agents);
+    if (state.firstAgents) {
+      list.forEach((a) => {
+        if (a.emojiTs) state.emojiSeen[a.id] = a.emojiTs;
+      });
+      state.firstAgents = false;
+      return;
+    }
+    list.forEach((a) => {
+      const ts = a.emojiTs || 0;
+      if (!a.emoji || !ts) return;
+      if (ts <= (state.emojiSeen[a.id] || 0)) return;
+      state.emojiSeen[a.id] = ts;
+      if (a.id === myAgentId()) return;
+      if (Date.now() - ts > 15000) return;
+      World.bubble(a.id, a.emoji, "emoji");
+    });
+  }
+
+  Store.onStatus(renderBadge);
+
+  Store.onAuth(function (user) {
     state.authUser = user || null;
-    const tag = $("#accountTag");
-    const id = myAgentId();
-    const showTag = !!(user && id);
-    tag.textContent = showTag ? id : "";
-    tag.hidden = !showTag;
-    $("#logoutBtn").hidden = !showTag;
-
+    renderHud();
     if (!user) {
       resetState();
       renderAll();
       showGate();
     }
-  }
+  });
 
-  Store.onAuth(onAuthChanged);
-
-  // 실시간 DB가 권한을 거부하면(=입장코드 폐기/규칙 문제) 입장 화면으로 잠급니다
-  Store.onStatus((next) => {
+  Store.onStatus(function (next) {
     if (next === "denied" && myAgentId()) {
+      World.pause();
+      resetState();
+      renderAll();
       showGate("입장코드가 더 이상 유효하지 않거나 권한이 없어요. 코드를 다시 확인해 주세요.");
     }
   });
 
-  async function boot() {
-    const hash = (location.hash || "").replace("#", "");
-    if (["map", "meeting", "workspace"].includes(hash)) state.tab = hash;
+  /* ---------------- 하트비트 ---------------- */
 
-    setTab(state.tab);
+  setInterval(function () {
+    const me = myAgent();
+    if (!me) return;
+    const pos = World.position ? World.position() : null;
+    const patch = { updatedAt: Date.now(), client: CLIENT };
+    if (pos) { patch.x = pos.x; patch.y = pos.y; }
+    Store.update("agents", me.id, patch).catch(() => {});
+  }, 45000);
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible") return;
+    if (worldReady) World.resize();
+    const me = myAgent();
+    if (me) Store.update("agents", me.id, { updatedAt: Date.now(), client: CLIENT }).catch(() => {});
+  });
+
+  window.addEventListener("resize", function () {
+    if (worldReady) World.resize();
+  });
+
+  /* ---------------- 시작 ---------------- */
+
+  async function boot() {
+    startTitleScene();
+    showGate();
     renderAll();
-    showGate();   // 확인되기 전에는 잠가 둡니다
+    setAuthBusy(true);
 
     const result = await Store.init();
 
     if (result.mode === "local") {
       showGate("로컬 데모 모드예요(Firebase 설정 없음). 아무 코드나 넣어 화면을 확인할 수 있어요.");
+      setAuthBusy(false);
       return;
     }
     if (result.error) {
       showGate("인증 서버에 연결하지 못했어요. 새로고침해서 다시 시도해 주세요.",
         String(result.error.code || result.error.message || ""));
+      setAuthBusy(false);
       return;
     }
     if (!Store.ready) {
       showGate("입장 상태를 확인하지 못했어요. 새로고침해서 다시 시도해 주세요.");
+      setAuthBusy(false);
       return;
     }
+
+    setAuthBusy(false);
     if (myAgentId()) enterApp();
     else showGate();
   }
