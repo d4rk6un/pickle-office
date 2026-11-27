@@ -10,7 +10,40 @@
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="app">
+
+<!-- 인증 게이트: 로그인 전에는 이 화면만 보입니다 -->
+<div id="authGate" class="auth-gate" role="main" aria-label="로그인">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="logo" aria-hidden="true">🏢</span>
+      <span class="brand-text">
+        <strong>합동 비서실</strong>
+        <small>Pickle Joint Office</small>
+      </span>
+    </div>
+    <p class="auth-lead">인증된 피클만 들어올 수 있어요.<br /><span class="muted">등록된 계정으로 로그인해 주세요.</span></p>
+
+    <form id="authForm" class="auth-form" autocomplete="on">
+      <label class="field">
+        <span>이메일</span>
+        <input id="authEmail" type="email" inputmode="email" autocomplete="username"
+               placeholder="pickle@example.com" required />
+      </label>
+      <label class="field">
+        <span>비밀번호</span>
+        <input id="authPassword" type="password" autocomplete="current-password"
+               placeholder="비밀번호" required />
+      </label>
+      <p id="authError" class="auth-error" role="alert" hidden></p>
+      <p id="authCode" class="auth-code" hidden></p>
+      <button id="authSubmit" class="btn primary wide" type="submit" disabled>로그인</button>
+    </form>
+
+    <p class="auth-foot">계정은 실장(관리자)이 Firebase 콘솔에서 발급합니다.</p>
+  </div>
+</div>
+
+<div class="app" hidden>
 
   <header class="topbar">
     <a class="brand" href="#map" aria-label="합동 비서실 홈">
@@ -21,11 +54,13 @@
       </span>
     </a>
     <div class="topbar-right">
-      <span id="dbBadge" class="badge pending" title="데이터 연결 상태">DB 연결 대기 중 - 로컬 데모 모드</span>
+      <span id="dbBadge" class="badge pending" title="데이터 연결 상태">로그인 확인 중…</span>
+      <span id="accountEmail" class="account-email" title="로그인한 계정" hidden></span>
       <button id="meChip" class="me-chip" type="button" aria-label="내 프로필 열기">
         <span class="me-avatar" id="meAvatar" aria-hidden="true">?</span>
-        <span class="me-name" id="meName">입장하기</span>
+        <span class="me-name" id="meName">내 피클</span>
       </button>
+      <button id="logoutBtn" class="btn ghost small" type="button" hidden>로그아웃</button>
     </div>
   </header>
 
@@ -43,9 +78,6 @@
         <div>
           <h2>오피스 맵</h2>
           <p class="hint">구역이나 빈 자리를 누르면 내 피클이 그쪽으로 이동해요. 다른 피클의 얼굴을 누르면 상태를 볼 수 있어요.</p>
-        </div>
-        <div class="head-actions">
-          <button class="btn ghost small" id="addPickleBtn" type="button">+ 피클 추가</button>
         </div>
       </div>
 
@@ -201,7 +233,7 @@
   <footer class="footer">
     <span>합동 비서실 · Pickle Joint Office</span>
     <span class="dot" aria-hidden="true">·</span>
-    <span id="footerMode">로컬 데모 모드</span>
+    <span id="footerMode">로그인 확인 중…</span>
     <span class="dot" aria-hidden="true">·</span>
     <a href="https://github.com/d4rk6un/pickle-office" target="_blank" rel="noopener">GitHub</a>
   </footer>

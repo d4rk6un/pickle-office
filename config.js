@@ -27,5 +27,19 @@ window.OFFICE_SETTINGS = {
   /* 데스크(자리) 수 */
   desks: 6,
   /* 이 시간(ms) 안에 heartbeat 가 있으면 "접속 중"으로 표시 */
-  onlineWindowMs: 3 * 60 * 1000
+  onlineWindowMs: 3 * 60 * 1000,
+
+  /* 인증 계정 → 피클 프로필 프리셋 (선택)
+     여기에 적어 둔 계정은 처음 로그인할 때 프로필이 자동으로 만들어집니다.
+     키는 이메일(소문자). 목록에 없으면 첫 로그인 때 이름·색깔을 직접 입력합니다.
+     예)
+     profiles: {
+       "jjinguri@example.com": { name: "찐구리", initial: "ㅈ", color: "pink", role: "합동 비서실 실장", desk: 1, status: "오피스 접속 중" },
+       "ssinguri@example.com": { name: "씬구리", initial: "ㅅ", color: "orange", desk: 2, status: "오피스 접속 중" }
+     }
+  */
+  profiles: {
+    "jjinguri@pickle.office": { name: "찐구리", initial: "ㅈ", color: "pink", role: "합동 비서실 실장", desk: 1, status: "오피스 접속 중" },
+    "ssinguri@pickle.office": { name: "씬구리", initial: "ㅅ", color: "orange", role: "", desk: 2, status: "오피스 접속 중" }
+  }
 };

@@ -850,3 +850,78 @@ a { color: var(--purple); }
 .chat-log::-webkit-scrollbar-thumb, .participant-list::-webkit-scrollbar-thumb {
   background: #e3ddf3; border-radius: 999px;
 }
+
+/* ---------- 인증 게이트 (로그인) ---------- */
+.auth-gate {
+  min-height: 100vh;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 26px 18px calc(26px + env(safe-area-inset-bottom));
+}
+.auth-gate[hidden] { display: none; }
+
+.auth-card {
+  width: min(430px, 100%);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 26px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-brand { display: inline-flex; align-items: center; gap: 10px; }
+.auth-brand .logo { box-shadow: none; background: linear-gradient(135deg, #fff0f7, #efeaff); }
+
+.auth-lead { margin: 0; font-size: 14.5px; font-weight: 800; line-height: 1.55; color: var(--ink); }
+.auth-lead .muted { font-weight: 500; color: var(--ink-mute); font-size: 12.5px; }
+
+.auth-form { display: flex; flex-direction: column; gap: 12px; }
+.auth-form .field { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; font-weight: 800; color: var(--ink-soft); }
+.auth-form input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.auth-form input:focus {
+  outline: none;
+  border-color: #cfc2ff;
+  background: #fff;
+  box-shadow: 0 0 0 3px #f0eaff;
+}
+.auth-form input::placeholder { color: #b7b1c9; font-weight: 500; }
+
+.auth-error {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #c2413a;
+  background: #fff1ef;
+  border: 1px solid #ffd9d3;
+  border-radius: 11px;
+  padding: 9px 11px;
+  line-height: 1.45;
+}
+.auth-error[hidden], .auth-code[hidden] { display: none; }
+.auth-code { margin: -6px 0 0; font-size: 11px; color: var(--ink-mute); word-break: break-all; }
+.auth-foot { margin: 0; font-size: 11.5px; color: var(--ink-mute); text-align: center; line-height: 1.5; }
+
+.account-email {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-email[hidden] { display: none; }

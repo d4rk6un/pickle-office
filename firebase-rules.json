@@ -1,16 +1,17 @@
 {
   "rules": {
     "office": {
-      ".read": true,
-      ".write": true,
+      ".read": "auth != null",
+      ".write": "auth != null",
 
       "agents": {
         "$agentId": {
-          "name":    { ".validate": "newData.isString() && newData.val().length <= 40" },
-          "initial": { ".validate": "newData.isString() && newData.val().length <= 4" },
-          "status":  { ".validate": "newData.isString() && newData.val().length <= 120" },
-          "location":{ ".validate": "newData.isString() && newData.val().matches(/^(meeting|workspace|lounge|away)$/)" },
-          "desk":    { ".validate": "newData.val() == null || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 12)" }
+          "name":     { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "initial":  { ".validate": "newData.isString() && newData.val().length <= 4" },
+          "status":   { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "email":    { ".validate": "newData.isString() && newData.val().length <= 120" },
+          "location": { ".validate": "newData.isString() && newData.val().matches(/^(meeting|workspace|lounge|away)$/)" },
+          "desk":     { ".validate": "newData.val() == null || (newData.isNumber() && newData.val() >= 1 && newData.val() <= 12)" }
         }
       },
 

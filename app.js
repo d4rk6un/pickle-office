@@ -35,16 +35,17 @@
   ];
 
   const CLIENT_KEY = "pickle-office-client";
-  const ME_KEY = "pickle-office-me";
-  const SEED_KEY = "pickle-office-seeded-v1";
+  const PRESETS = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.profiles) || {};
   const DESKS = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.desks) || 6;
   const ONLINE_MS = (window.OFFICE_SETTINGS && window.OFFICE_SETTINGS.onlineWindowMs) || 180000;
 
   const state = {
     agents: {}, chat: {}, tasks: {}, notes: {}, agenda: {}, decisions: {},
     me: null,
+    authUser: null,
     tab: "map",
     modalSubmit: null,
+    setupOpen: false,
     chatDirty: true
   };
 
@@ -126,7 +127,7 @@
 
   function values(obj) { return Object.keys(obj || {}).map((k) => Object.assign({ id: k }, obj[k] || {})); }
 
-  /* 첫 데이터가 도착할 때까지 짧게 기다립니다 (입장 창의 '이미 있는 피클' 목록용) */
+  /* 서버에 이미 내 프로필이 있는지 첫 스냅샷을 잠깐 기다립니다 */
   function waitForAgents(timeoutMs) {
     return new Promise((resolve) => {
       let settled = false;
@@ -141,7 +142,7 @@
     });
   }
 
-  /* ---------------- 내 정체성 ---------------- */
+  /* ---------------- 내 정체성 : 인증 계정(uid) = 내 피클 ---------------- */
 
   const CLIENT = (function () {
     let id = null;
@@ -153,92 +154,57 @@
     return id;
   })();
 
-  function loadMe() {
-    try {
-      const raw = window.localStorage.getItem(ME_KEY);
-      const me = raw ? JSON.parse(raw) : null;
-      return me && me.id ? me : null;
-    } catch (e) { return null; }
-  }
-
-  function saveMe(id) {
-    state.me = id ? { id } : null;
-    try {
-      if (id) window.localStorage.setItem(ME_KEY, JSON.stringify({ id }));
-      else window.localStorage.removeItem(ME_KEY);
-    } catch (e) { /* ignore */ }
-  }
+  function currentUser() { return Store.user ? Store.user() : null; }
 
   function myAgent() {
-    if (!state.me || !state.me.id) return null;
-    const record = state.agents[state.me.id];
+    const user = currentUser();
+    if (!user || !user.uid) return null;
+    const record = state.agents[user.uid];
     if (!record) return null;
-    return Object.assign({ id: state.me.id }, record);
+    return Object.assign({ id: user.uid }, record);
   }
 
   function requireMe() {
     if (myAgent()) return true;
-    openJoinModal();
-    toast("먼저 내 피클로 입장해 주세요");
+    const user = currentUser();
+    if (!user) { showGate(); toast("로그인이 필요해요"); return false; }
+    toast("내 피클 프로필을 먼저 만들어 주세요");
+    openSetupModal(user);
     return false;
   }
 
-  /* ---------------- 기본 피클(데모) ---------------- */
-
-  const DEFAULT_PICKLES = [
-    { id: "jjinguri", name: "찐구리", initial: "ㅈ", color: "pink", role: "합동 비서실 실장", location: "workspace", desk: 1, status: "오피스 세팅 중" },
-    { id: "eunjeong", name: "은정 님 피클", initial: "은", color: "purple", role: "브랜드 담당", location: "meeting", desk: null, status: "회의 대기" },
-    { id: "hyeonjong", name: "현종 님 피클", initial: "현", color: "green", role: "자료 조사 담당", location: "workspace", desk: 3, status: "자료 정리 중" },
-    { id: "geonpyo", name: "건표 님 피클", initial: "건", color: "blue", role: "일정 담당", location: "workspace", desk: 5, status: "일정 확인 중" },
-    { id: "juhong", name: "주홍 님 피클", initial: "주", color: "orange", role: "구매 담당", location: "lounge", desk: null, status: "커피 한 잔" }
-  ];
-
-  async function seedDemo() {
-    const now = Date.now();
-    for (let i = 0; i < DEFAULT_PICKLES.length; i++) {
-      const p = DEFAULT_PICKLES[i];
-      const record = Object.assign({}, p, { updatedAt: now - i * 1000, client: "seed" });
-      await Store.set("agents", p.id, record);
-    }
-    const chatSeed = [
-      { name: "찐구리", initial: "ㅈ", color: "pink", agentId: "jjinguri", text: "합동 비서실 오픈! 자리는 오피스 맵에서 잡고, 이야기는 회의실에서 해요 🥒", ts: now - 60000 },
-      { name: "은정 님 피클", initial: "은", color: "purple", agentId: "eunjeong", text: "회의실에 안건 올려 뒀어요. 오늘은 업무 공유부터 할까요?", ts: now - 30000 }
-    ];
-    for (const m of chatSeed) await Store.set("chat", Store.newId("msg"), m);
-
-    const tasks = [
-      { title: "오피스 맵에서 각자 자리 잡기", status: "todo", assignee: "", createdBy: "찐구리", createdAt: now - 500000 },
-      { title: "이번 주 업무 공유 준비", status: "doing", assignee: "eunjeong", createdBy: "은정 님 피클", createdAt: now - 400000 },
-      { title: "합동 비서실 첫 회의 열기", status: "done", assignee: "jjinguri", createdBy: "찐구리", createdAt: now - 300000 }
-    ];
-    for (const t of tasks) await Store.set("tasks", Store.newId("task"), t);
-
-    await Store.set("notes", Store.newId("note"), {
-      title: "GitHub 리포지토리", url: "https://github.com/d4rk6un/pickle-office",
-      memo: "이 페이지의 소스와 REST API 안내", by: "찐구리", ts: now - 200000
-    });
-    await Store.set("notes", Store.newId("note"), {
-      title: "사용 안내", url: "",
-      memo: "구역을 누르면 내 피클이 이동해요. 회의실·작업실은 실시간으로 함께 써요.", by: "찐구리", ts: now - 100000
-    });
-
-    await Store.set("agenda", Store.newId("agenda"), { text: "이번 주 각 피클 업무 공유", by: "은정 님 피클", ts: now - 120000, done: false });
-    await Store.set("agenda", Store.newId("agenda"), { text: "회의실 운영 규칙 정하기", by: "찐구리", ts: now - 110000, done: false });
-    await Store.set("decisions", Store.newId("decision"), { text: "회의실 안건은 매주 월요일 오전에 정리한다", by: "찐구리", ts: now - 100000 });
-
-    try { window.localStorage.setItem(SEED_KEY, "1"); } catch (e) { /* ignore */ }
+  function presetFor(email) {
+    if (!email) return null;
+    return PRESETS[String(email).toLowerCase()] || null;
   }
 
-  async function seedIfNeeded() {
-    let seeded = null;
-    try { seeded = window.localStorage.getItem(SEED_KEY); } catch (e) { /* ignore */ }
-    if (seeded) return;
-    if (Store.mode !== "local") return; // 실시간 DB 모드에서는 자동으로 넣지 않음
-    if (values(state.agents).length) {
-      try { window.localStorage.setItem(SEED_KEY, "1"); } catch (e) { /* ignore */ }
-      return;
-    }
-    await seedDemo();
+  async function touchPresence() {
+    const me = myAgent();
+    if (!me) return;
+    try { await Store.update("agents", me.id, { updatedAt: Date.now(), client: CLIENT }); }
+    catch (e) { /* ignore */ }
+  }
+
+  /* 첫 로그인: 프리셋이 있으면 그 값으로 만들고, 없으면 프로필 입력 창을 엽니다 */
+  async function ensureProfile(user) {
+    if (!user || !user.uid) return;
+    if (state.agents[user.uid]) { await touchPresence(); return; }
+    const preset = presetFor(user.email);
+    if (!preset) { openSetupModal(user); return; }
+    const name = preset.name || (user.email || "").split("@")[0] || "피클";
+    await Store.set("agents", user.uid, {
+      name,
+      initial: preset.initial || initialOf(name),
+      color: preset.color || "purple",
+      role: preset.role || "",
+      location: preset.location || "workspace",
+      desk: typeof preset.desk === "number" ? preset.desk : null,
+      status: preset.status || "오피스 접속 중",
+      email: user.email || "",
+      updatedAt: Date.now(),
+      client: CLIENT
+    });
+    toast(name + " 피클로 입장했어요");
   }
 
   /* ---------------- 모달 ---------------- */
@@ -285,112 +251,86 @@
       .catch((err) => { console.error(err); toast("저장하지 못했어요"); });
   });
 
-  dialog.addEventListener("close", function () { state.modalSubmit = null; });
+  dialog.addEventListener("close", function () { state.modalSubmit = null; state.setupOpen = false; });
 
-  /* ---------------- 입장 / 프로필 ---------------- */
+  /* ---------------- 내 프로필 ---------------- */
 
-  function openJoinModal() {
-    const nameInput = h("input", { type: "text", maxlength: "20", placeholder: "예: 찐구리", autocomplete: "off" });
-    const initialInput = h("input", { type: "text", maxlength: "2", placeholder: "자동", autocomplete: "off" });
-    let pickedColor = "pink";
-
-    const swatchRow = h("div", { class: "swatches" });
+  function swatchPicker(initialKey) {
+    let picked = COLOR_KEYS.indexOf(initialKey) >= 0 ? initialKey : "purple";
+    const el = h("div", { class: "swatches" });
     COLOR_KEYS.forEach((key) => {
       const sw = h("button", {
-        type: "button", class: "swatch" + (key === pickedColor ? " is-on" : ""),
+        type: "button", class: "swatch" + (key === picked ? " is-on" : ""),
         style: { "--c": COLORS[key] }, "aria-label": key
       });
       sw.addEventListener("click", () => {
-        pickedColor = key;
-        $$(".swatch", swatchRow).forEach((s) => s.classList.remove("is-on"));
+        picked = key;
+        $$(".swatch", el).forEach((s) => s.classList.remove("is-on"));
         sw.classList.add("is-on");
       });
-      swatchRow.append(sw);
+      el.append(sw);
     });
+    return { el: el, picked: () => picked };
+  }
 
-    const existing = values(state.agents).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    const quick = h("div", { class: "pick-list" });
-    existing.slice(0, 12).forEach((agent) => {
-      const btn = h("button", { type: "button", class: "pick" },
-        h("span", { class: "avatar sm", style: { "--c": colorOf(agent) }, text: agent.initial || initialOf(agent.name) }),
-        agent.name
-      );
-      btn.addEventListener("click", () => joinAs(agent));
-      quick.append(btn);
-    });
+  /* 처음 로그인한 계정: 자기 피클 프로필을 만들어 /office/agents/{uid} 에 저장 */
+  function openSetupModal(user) {
+    if (!user || !user.uid) return;
+    if (state.setupOpen) return;
+    const email = user.email || "";
+    const nameInput = h("input", { type: "text", maxlength: "20", placeholder: "예: 찐구리", autocomplete: "off" });
+    const initialInput = h("input", { type: "text", maxlength: "2", placeholder: "자동", autocomplete: "off" });
+    const roleInput = h("input", { type: "text", maxlength: "30", placeholder: "예: 여행 담당 (선택)" });
+    const swatches = swatchPicker("pink");
 
+    state.setupOpen = true;
     openModal({
-      title: "비서실 입장",
-      okText: "입장하기",
+      title: "내 피클 프로필",
+      okText: "시작하기",
+      hideCancel: true,
       body: [
-        h("p", { class: "hint", text: "내 피클 이름을 정하면 오피스 맵에 내 자리가 생겨요." }),
-        quick.childElementCount ? field("이미 있는 피클로 들어가기", quick) : null,
-        field("새 피클 이름", nameInput),
+        h("p", { class: "hint", text: (email ? email + " 계정으로 인증됐어요. " : "") + "오피스에 표시할 내 피클을 정해 주세요. 이 이름과 색깔이 오피스 맵에 나타나요." }),
+        field("이름", nameInput),
         field("이니셜 (선택)", initialInput, "비워 두면 이름 첫 글자를 써요"),
-        field("색깔", swatchRow)
+        field("역할 (선택)", roleInput),
+        field("색깔", swatches.el)
       ],
       onSubmit: async () => {
         const name = nameInput.value.trim();
         if (!name) { toast("이름을 입력해 주세요"); nameInput.focus(); return false; }
-        const initial = initialInput.value.trim() || initialOf(name);
-        const id = Store.newId("agent");
-        await Store.set("agents", id, {
-          name, initial, color: pickedColor, role: "", location: "workspace",
-          desk: null, status: "새로 입장했어요", updatedAt: Date.now(), client: CLIENT
+        await Store.set("agents", user.uid, {
+          name: name,
+          initial: initialInput.value.trim() || initialOf(name),
+          color: swatches.picked(),
+          role: roleInput.value.trim(),
+          location: "workspace",
+          desk: null,
+          status: "오피스 접속 중",
+          email: email,
+          updatedAt: Date.now(),
+          client: CLIENT
         });
-        saveMe(id);
+        state.setupOpen = false;
         renderAll();
         toast(name + " 피클로 입장했어요");
       }
     });
   }
 
-  async function joinAs(agent) {
-    if (!state.agents[agent.id]) return;
-    if (agent.client && agent.client !== CLIENT && isOnline(agent)) {
-      toast(agent.name + " 피클에 새로 접속했어요 (다른 창은 자리 비움으로 바뀝니다)");
-    } else {
-      toast(agent.name + " 피클로 입장했어요");
-    }
-    saveMe(agent.id);
-    const patch = { updatedAt: Date.now(), client: CLIENT };
-    if (!agent.status || agent.status === "접속 대기") patch.status = "오피스 접속 중";
-    await Store.update("agents", agent.id, patch);
-    closeModal();
-  }
-
   function openProfileModal() {
     const me = myAgent();
-    if (!me) { openJoinModal(); return; }
+    if (!me) {
+      const user = currentUser();
+      if (user) openSetupModal(user);
+      else showGate();
+      return;
+    }
 
     const nameInput = h("input", { type: "text", maxlength: "20", value: me.name || "" });
     const initialInput = h("input", { type: "text", maxlength: "2", value: me.initial || "" });
+    const roleInput = h("input", { type: "text", maxlength: "30", value: me.role || "", placeholder: "예: 자료 조사 담당" });
     const statusInput = h("input", { type: "text", maxlength: "60", value: me.status || "", placeholder: "예: 원료 발주 확인 중" });
-    let pickedColor = COLOR_KEYS.indexOf(me.color) >= 0 ? me.color : "purple";
-
-    const swatchRow = h("div", { class: "swatches" });
-    COLOR_KEYS.forEach((key) => {
-      const sw = h("button", {
-        type: "button", class: "swatch" + (key === pickedColor ? " is-on" : ""),
-        style: { "--c": COLORS[key] }, "aria-label": key
-      });
-      sw.addEventListener("click", () => {
-        pickedColor = key;
-        $$(".swatch", swatchRow).forEach((s) => s.classList.remove("is-on"));
-        sw.classList.add("is-on");
-      });
-      swatchRow.append(sw);
-    });
-
-    const leaveBtn = h("button", {
-      type: "button", class: "btn ghost small",
-      onclick: () => {
-        saveMe(null);
-        closeModal();
-        renderAll();
-        toast("이 브라우저에서 로그아웃했어요 (피클 기록은 남아 있어요)");
-      }
-    }, "이 브라우저에서 나가기");
+    const swatches = swatchPicker(me.color || "purple");
 
     openModal({
       title: "내 프로필",
@@ -398,64 +338,26 @@
       body: [
         field("이름", nameInput),
         field("이니셜", initialInput),
+        field("역할", roleInput),
         field("상태 메시지", statusInput, "오피스 맵에 함께 표시돼요"),
-        field("색깔", swatchRow),
+        field("색깔", swatches.el),
         h("div", { class: "small muted" }, "현재 위치: ", ROOMS[me.location] ? ROOMS[me.location].name : "부재중", me.desk ? " · " + me.desk + "번 자리" : ""),
-        leaveBtn
+        me.email ? h("div", { class: "small muted" }, "로그인 계정: ", me.email) : null
       ],
       onSubmit: async () => {
         const name = nameInput.value.trim();
         if (!name) { toast("이름을 입력해 주세요"); return false; }
         await Store.update("agents", me.id, {
-          name,
+          name: name,
           initial: initialInput.value.trim() || initialOf(name),
+          role: roleInput.value.trim(),
           status: statusInput.value.trim(),
-          color: pickedColor,
+          color: swatches.picked(),
           updatedAt: Date.now(),
           client: CLIENT
         });
         renderAll();
         toast("프로필을 저장했어요");
-      }
-    });
-  }
-
-  function openAddPickleModal() {
-    const nameInput = h("input", { type: "text", maxlength: "20", placeholder: "예: 지민 님 피클" });
-    const roleInput = h("input", { type: "text", maxlength: "30", placeholder: "예: 여행 담당 (선택)" });
-    let pickedColor = "mint";
-    const swatchRow = h("div", { class: "swatches" });
-    COLOR_KEYS.forEach((key) => {
-      const sw = h("button", {
-        type: "button", class: "swatch" + (key === pickedColor ? " is-on" : ""),
-        style: { "--c": COLORS[key] }, "aria-label": key
-      });
-      sw.addEventListener("click", () => {
-        pickedColor = key;
-        $$(".swatch", swatchRow).forEach((s) => s.classList.remove("is-on"));
-        sw.classList.add("is-on");
-      });
-      swatchRow.append(sw);
-    });
-
-    openModal({
-      title: "피클 추가",
-      okText: "추가",
-      body: [
-        h("p", { class: "hint", text: "아직 웹으로 들어오지 않는 피클도 미리 자리를 만들어 둘 수 있어요." }),
-        field("이름", nameInput),
-        field("역할 (선택)", roleInput),
-        field("색깔", swatchRow)
-      ],
-      onSubmit: async () => {
-        const name = nameInput.value.trim();
-        if (!name) { toast("이름을 입력해 주세요"); return false; }
-        await Store.set("agents", Store.newId("agent"), {
-          name, initial: initialOf(name), color: pickedColor, role: roleInput.value.trim(),
-          location: "away", desk: null, status: "아직 자리 없음",
-          updatedAt: Date.now() - ONLINE_MS - 1000, client: "seed"
-        });
-        toast(name + " 자리를 만들었어요");
       }
     });
   }
@@ -507,34 +409,53 @@
     const badge = $("#dbBadge");
     badge.classList.remove("live", "pending");
     const status = Store.status;
-    if (Store.mode === "firebase" && status === "live") {
+    const signedIn = !!currentUser();
+    if (Store.mode !== "firebase") {
+      badge.textContent = "Firebase 설정 필요";
+      badge.classList.add("pending");
+    } else if (status === "error") {
+      badge.textContent = "인증 서버에 연결하지 못했어요";
+      badge.classList.add("pending");
+    } else if (!signedIn) {
+      badge.textContent = "로그인 필요";
+      badge.classList.add("pending");
+    } else if (status === "live") {
       badge.textContent = "실시간 동기화 중";
       badge.classList.add("live");
-    } else if (Store.mode === "firebase" && status === "connecting") {
-      badge.textContent = "실시간 DB 연결 중…";
+    } else if (status === "denied") {
+      badge.textContent = "접근 권한 없음 · 보안 규칙 확인";
       badge.classList.add("pending");
-    } else if (Store.mode === "firebase" && status === "offline") {
+    } else if (status === "offline") {
       badge.textContent = "실시간 DB 연결 끊김 · 재연결 중";
       badge.classList.add("pending");
     } else {
-      badge.textContent = "DB 연결 대기 중 - 로컬 데모 모드";
+      badge.textContent = "실시간 DB 연결 중…";
       badge.classList.add("pending");
     }
-    $("#footerMode").textContent = Store.mode === "firebase" ? "Firebase Realtime Database" : "로컬 데모 모드 (localStorage)";
+    let foot = "Firebase Realtime Database";
+    if (Store.mode !== "firebase") foot = "Firebase 설정 없음";
+    else if (!signedIn) foot = "로그인 전 · 데이터 잠김";
+    else if (status === "live") foot = "인증된 세션 · 실시간 동기화";
+    $("#footerMode").textContent = foot;
   }
 
   function renderMe() {
     const me = myAgent();
+    const user = currentUser();
     const avatar = $("#meAvatar");
     const name = $("#meName");
     if (me) {
       avatar.textContent = me.initial || initialOf(me.name);
       avatar.style.background = colorOf(me);
       name.textContent = me.name;
+    } else if (user) {
+      avatar.textContent = (user.email || "?").slice(0, 1).toUpperCase();
+      avatar.style.background = COLORS.purple;
+      name.textContent = "프로필 설정";
     } else {
       avatar.textContent = "?";
       avatar.style.background = COLORS.purple;
-      name.textContent = "입장하기";
+      name.textContent = "내 피클";
     }
   }
 
@@ -614,18 +535,6 @@
       }
       sortedAgents(list).forEach((agent) => holder.append(agentChip(agent)));
     });
-
-    // 기본 피클 안내
-    const headActions = $(".head-actions");
-    const seedBtn = $("#seedBtn");
-    if (!agents.length && !seedBtn) {
-      headActions.prepend(h("button", {
-        type: "button", class: "btn ghost small", id: "seedBtn",
-        onclick: async () => { await seedDemo(); toast("기본 피클 5명을 불러왔어요"); }
-      }, "기본 피클 불러오기"));
-    } else if (agents.length && seedBtn) {
-      seedBtn.remove();
-    }
   }
 
   function openAgentCard(agent) {
@@ -1015,10 +924,13 @@
   // 내 프로필
   $("#meChip").addEventListener("click", () => {
     if (myAgent()) openProfileModal();
-    else openJoinModal();
+    else {
+      const user = currentUser();
+      if (user) openSetupModal(user);
+      else showGate();
+    }
   });
 
-  $("#addPickleBtn").addEventListener("click", openAddPickleModal);
   $("#joinMeeting").addEventListener("click", () => moveTo("meeting", null));
 
   $$(".add-card").forEach((btn) => btn.addEventListener("click", () => openTaskModal(btn.dataset.add)));
@@ -1083,42 +995,177 @@
   // 모달 취소 시 포커스 복구
   dialog.addEventListener("cancel", () => { state.modalSubmit = null; });
 
+  /* ---------------- 인증 게이트 (로그인 화면) ---------------- */
+
+  const gate = $("#authGate");
+  const appRoot = $(".app");
+  const authForm = $("#authForm");
+  const authEmail = $("#authEmail");
+  const authPassword = $("#authPassword");
+  const authSubmit = $("#authSubmit");
+  const authError = $("#authError");
+  const authCode = $("#authCode");
+
+  function setAuthError(message, code) {
+    if (message) {
+      authError.textContent = message;
+      authError.hidden = false;
+    } else {
+      authError.textContent = "";
+      authError.hidden = true;
+    }
+    if (code) {
+      authCode.textContent = code;
+      authCode.hidden = false;
+    } else {
+      authCode.textContent = "";
+      authCode.hidden = true;
+    }
+  }
+
+  function setAuthBusy(busy) {
+    authSubmit.disabled = !!busy;
+    authSubmit.textContent = busy ? "로그인 중…" : "로그인";
+  }
+
+  function showGate(message, code) {
+    appRoot.hidden = true;
+    gate.hidden = false;
+    authSubmit.disabled = !(Store.mode === "firebase" && Store.ready);
+    if (message) setAuthError(message, code);
+    setTimeout(() => {
+      try {
+        if (!authEmail.value) authEmail.focus();
+        else authPassword.focus();
+      } catch (e) { /* ignore */ }
+    }, 60);
+  }
+
+  function showApp() {
+    gate.hidden = true;
+    appRoot.hidden = false;
+    setAuthError("");
+    setAuthBusy(false);
+  }
+
+  function authErrorMessage(err) {
+    const code = (err && err.code) || "";
+    switch (code) {
+      case "auth/invalid-email": return "이메일 형식이 올바르지 않아요.";
+      case "auth/missing-password": return "비밀번호를 입력해 주세요.";
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found": return "이메일 또는 비밀번호가 맞지 않아요.";
+      case "auth/user-disabled": return "사용이 중지된 계정이에요.";
+      case "auth/too-many-requests": return "시도가 너무 많아요. 잠시 뒤 다시 시도해 주세요.";
+      case "auth/operation-not-allowed": return "이 프로젝트에서 이메일/비밀번호 로그인이 아직 켜져 있지 않아요.";
+      case "auth/network-request-failed": return "네트워크에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+      case "auth/invalid-api-key":
+      case "auth/api-key-not-valid": return "Firebase 설정(apiKey)을 확인해 주세요.";
+      default: return "로그인하지 못했어요. 계정 정보를 확인해 주세요.";
+    }
+  }
+
+  authForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const email = authEmail.value.trim();
+    const password = authPassword.value;
+    if (!email || !password) {
+      setAuthError("이메일과 비밀번호를 모두 입력해 주세요.");
+      return;
+    }
+    setAuthError("");
+    setAuthBusy(true);
+    try {
+      await Store.signIn(email, password);
+      authPassword.value = "";
+    } catch (err) {
+      console.error("[auth] 로그인 실패", err);
+      setAuthError(authErrorMessage(err), (err && err.code) || "");
+      setAuthBusy(false);
+    }
+  });
+
+  $("#logoutBtn").addEventListener("click", async () => {
+    try {
+      await Store.signOut();
+      toast("로그아웃했어요");
+    } catch (e) {
+      toast("로그아웃하지 못했어요");
+    }
+  });
+
   /* ---------------- 시작 ---------------- */
+
+  let authFlowToken = 0;
+
+  async function onAuthChanged(user) {
+    const token = ++authFlowToken;
+    state.authUser = user || null;
+    state.me = user && user.uid ? { id: user.uid } : null;
+
+    const emailEl = $("#accountEmail");
+    emailEl.textContent = user ? (user.email || user.uid) : "";
+    emailEl.hidden = !user;
+    $("#logoutBtn").hidden = !user;
+
+    if (!user) {
+      state.agents = {}; state.chat = {}; state.tasks = {};
+      state.notes = {}; state.agenda = {}; state.decisions = {};
+      state.setupOpen = false;
+      if (dialog.open) { try { dialog.close(); } catch (e) { /* ignore */ } }
+      renderAll();
+      showGate();
+      return;
+    }
+
+    showApp();
+    renderAll();
+    await waitForAgents(5000);
+    if (token !== authFlowToken) return;
+    try {
+      await ensureProfile(user);
+    } catch (err) {
+      console.error("[profile] 내 피클을 준비하지 못했어요", err);
+      toast("내 피클을 불러오지 못했어요 (권한 또는 네트워크 확인)");
+    }
+  }
+
+  Store.onAuth(onAuthChanged);
 
   async function boot() {
     const hash = (location.hash || "").replace("#", "");
     if (["map", "meeting", "workspace"].includes(hash)) state.tab = hash;
 
-    const result = await Store.init();
-    saveMe((loadMe() || {}).id || null);
-    renderAll();
     setTab(state.tab);
+    renderAll();
+    showGate();   // 확인되기 전에는 잠가 둡니다
 
-    // 첫 방문: 로컬 데모 데이터 채우기
-    await seedIfNeeded();
+    const result = await Store.init();
 
-    // 실시간 DB 모드에서는 첫 스냅샷이 올 때까지 기다립니다
-    await waitForAgents(4000);
-
-    // 내 피클이 사라졌다면 다시 입장 안내
-    if (state.me && !state.agents[state.me.id]) {
-      saveMe(null);
-      renderMe();
+    if (result.mode !== "firebase") {
+      showGate("Firebase 설정(config.js)이 없어 로그인할 수 없어요.", "config-missing");
+      return;
+    }
+    if (result.error) {
+      showGate("인증 서버에 연결하지 못했어요. 새로고침해서 다시 시도해 주세요.",
+        String(result.error.code || result.error.message || ""));
+      return;
+    }
+    if (!Store.ready) {
+      showGate("로그인 상태를 확인하지 못했어요. 새로고침해서 다시 시도해 주세요.");
+      return;
     }
 
-    const me = myAgent();
-    if (me) {
-      await Store.update("agents", me.id, { updatedAt: Date.now(), client: CLIENT });
-    } else if (!window.localStorage.getItem(ME_KEY)) {
-      openJoinModal();
-    }
-
-    if (result.mode === "firebase") toast("실시간 DB에 연결됐어요");
+    // 인증 상태 콜백이 이미 처리했지만, 혹시 놓친 경우를 한 번 더 반영합니다
+    if (!Store.user()) showGate();
+    else if (appRoot.hidden) showApp();
+    setTab(state.tab);
   }
 
   boot().catch((err) => {
     console.error(err);
     renderAll();
-    toast("데이터를 불러오지 못했어요 (로컬 데모 모드로 동작합니다)");
+    showGate("앱을 시작하지 못했어요. 새로고침해서 다시 시도해 주세요.", String((err && err.message) || ""));
   });
 })();
