@@ -1364,8 +1364,13 @@
     glow.addColorStop(1, "rgba(255,214,150,0)");
     g.fillStyle = glow;
     g.beginPath(); g.arc(mx, my, mr * 4.4, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#fff3cf";
+    g.fillStyle = "rgba(255,246,214,0.35)";
+    g.beginPath(); g.arc(mx, my, mr * 1.35, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#fffbe9";
     g.beginPath(); g.arc(mx, my, mr, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "rgba(255,255,255,0.35)";
+    g.lineWidth = 2;
+    g.beginPath(); g.arc(mx, my, mr - 1, 0, Math.PI * 2); g.stroke();
     g.fillStyle = "rgba(226,196,140,0.5)";
     g.beginPath(); g.arc(mx - mr * 0.3, my - mr * 0.18, mr * 0.2, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.arc(mx + mr * 0.34, my + mr * 0.26, mr * 0.13, 0, Math.PI * 2); g.fill();
