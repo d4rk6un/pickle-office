@@ -1097,6 +1097,9 @@
     // 첫 방문: 로컬 데모 데이터 채우기
     await seedIfNeeded();
 
+    // 실시간 DB 모드에서는 첫 스냅샷이 올 때까지 기다립니다
+    await waitForAgents(4000);
+
     // 내 피클이 사라졌다면 다시 입장 안내
     if (state.me && !state.agents[state.me.id]) {
       saveMe(null);
@@ -1107,8 +1110,7 @@
     if (me) {
       await Store.update("agents", me.id, { updatedAt: Date.now(), client: CLIENT });
     } else if (!window.localStorage.getItem(ME_KEY)) {
-      await waitForAgents(4000);
-      if (!myAgent()) openJoinModal();
+      openJoinModal();
     }
 
     if (result.mode === "firebase") toast("실시간 DB에 연결됐어요");
