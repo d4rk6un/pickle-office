@@ -470,10 +470,12 @@
     // 의자 (책상 앞)
     const cx = x + DESK_W / 2;
     const cy = y + DESK_H + 12;
-    px(g, cx - 12, cy - 8, 24, 16, "#5d6b8c");
-    px(g, cx - 12, cy - 10, 24, 4, "#7c8cb3");
-    px(g, cx - 14, cy - 6, 4, 18, "#41506e");
-    px(g, cx + 10, cy - 6, 4, 18, "#41506e");
+    px(g, cx - 14, cy + 8, 4, 5, "#2f3a52");
+    px(g, cx + 10, cy + 8, 4, 5, "#2f3a52");
+    px(g, cx - 13, cy - 10, 26, 20, "#38445f");
+    px(g, cx - 11, cy - 8, 22, 16, "#63739a");
+    px(g, cx - 11, cy - 10, 22, 5, "#8394bd");
+    px(g, cx - 9, cy - 2, 18, 8, "#70819f");
   }
 
   function drawCooler(g, x, y) {
@@ -558,10 +560,12 @@
     px(g, t.x + 4, t.y + t.h - 2, t.w, 10, "rgba(30,20,40,0.20)");
     // 의자들
     MEET_CHAIRS.forEach(function (c) {
-      px(g, c.x - 11, c.y - 8, 22, 16, "#5d6b8c");
-      px(g, c.x - 11, c.y - 10, 22, 4, "#7c8cb3");
-      px(g, c.x - 13, c.y + 6, 4, 4, "#41506e");
-      px(g, c.x + 9, c.y + 6, 4, 4, "#41506e");
+      px(g, c.x - 13, c.y + 6, 4, 5, "#2f3a52");
+      px(g, c.x + 9, c.y + 6, 4, 5, "#2f3a52");
+      px(g, c.x - 12, c.y - 11, 24, 20, "#38445f");
+      px(g, c.x - 10, c.y - 9, 20, 16, "#63739a");
+      px(g, c.x - 10, c.y - 11, 20, 5, "#8394bd");
+      px(g, c.x - 8, c.y - 3, 16, 8, "#70819f");
     });
     // 테이블
     px(g, t.x, t.y, t.w, t.h, "#8a5a38");
@@ -811,12 +815,6 @@
     drawPlant(g, 596, 300, 0.95);
     drawPlant(g, 44, 320, 0.8);
 
-    // 바닥 스탠드 램프
-    px(g, 574, 60, 4, 56, "#5d6b8c");
-    g.fillStyle = "#ffe6a7";
-    g.beginPath();
-    g.moveTo(560, 58); g.lineTo(592, 58); g.lineTo(586, 40); g.lineTo(566, 40);
-    g.closePath(); g.fill();
 
     // 서류 상자
     px(g, 32, 88, 16, 18, "#c9a06a");
@@ -851,7 +849,7 @@
 
     // 타원 러그
     g.save();
-    g.globalAlpha = 0.16;
+    g.globalAlpha = 0.12;
     g.fillStyle = "#3f6a92";
     g.beginPath();
     g.ellipse(965, 208, 246, 152, 0, 0, Math.PI * 2);
@@ -877,11 +875,6 @@
     // 화상회의 카메라
     px(g, 664 + 8, 60, 10, 10, "#2a2c42");
 
-    // 천장 조명
-    [[820, 60], [970, 56], [1120, 60]].forEach(function (l) {
-      px(g, l[0] - 20, l[1], 40, 4, "#dce6f5");
-      px(g, l[0] - 12, l[1] + 4, 24, 3, "#fff3c4");
-    });
   }
 
   function paintLounge(g) {
